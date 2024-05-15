@@ -1,0 +1,11 @@
+syntax = "proto3";
+package PingPongPackage;
+service PingPong {
+  rpc Ping(Empty) returns (Pong);
+}
+
+message Empty {}
+
+message Pong {
+  string message = 1;
+}
