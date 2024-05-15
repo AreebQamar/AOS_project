@@ -5,8 +5,9 @@ const grpcObject = grpc.loadPackageDefinition(packageDefinition);
 const pingpongProto = grpcObject.PingPongPackage;
 
 function ping(call, callback) {
-  console.log("Ping received");
-  callback(null, { message: "Pong" });
+  const clientId = call.request.id;
+  console.log(`Ping received from client: ${clientId}`);
+  callback(null, { message: `Pong from server to client ${clientId}` });
 }
 
 function main() {

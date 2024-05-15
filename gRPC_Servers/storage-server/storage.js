@@ -4,17 +4,25 @@ const packageDefinition = protoLoader.loadSync("../proto.proto", {});
 const grpcObject = grpc.loadPackageDefinition(packageDefinition);
 const pingpongProto = grpcObject.PingPongPackage;
 
+// Read client ID from command-line arguments
+const args = process.argv.slice(2);
+if (args.length < 1) {
+  console.error("Usage: node client.js <client_id>");
+  process.exit(1);
+}
+const clientId = args[0];
+
 const client = new pingpongProto.PingPong(
   "localhost:50051",
   grpc.credentials.createInsecure()
 );
 
 function pingClient() {
-  client.Ping({}, (error, response) => {
+  client.Ping({ id: clientId }, (error, response) => {
     if (error) {
-      console.error("Client is offline");
+      console.error("Client encountered an error:", error);
     } else {
-      console.log("Client is online: ", response.message);
+      console.log("response:", response.message);
     }
   });
 }
