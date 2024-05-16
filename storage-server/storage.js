@@ -1,30 +1,40 @@
 const grpc = require("@grpc/grpc-js");
 const protoLoader = require("@grpc/proto-loader");
+const fs = require("fs");
 const packageDefinition = protoLoader.loadSync("../proto.proto", {});
 const grpcObject = grpc.loadPackageDefinition(packageDefinition);
-const pingpongProto = grpcObject.PingPongPackage;
+const FileTransferProto = grpcObject.FileTransferPackage;
 
-// Read client ID from command-line arguments
-const args = process.argv.slice(2);
-if (args.length < 1) {
-  console.error("Usage: node client.js <client_id>");
-  process.exit(1);
-}
-const clientId = args[0];
-
-const client = new pingpongProto.PingPong(
-  "localhost:50051",
-  grpc.credentials.createInsecure()
-);
-
-function pingClient() {
-  client.Ping({ id: clientId }, (error, response) => {
+function saveFile(filename, client) {
+  const call = client.uploadFile((error, response) => {
     if (error) {
-      console.error("Client encountered an error:", error);
+      console.error("Error uploading file:", error);
     } else {
-      console.log("response:", response.message);
+      console.log("Upload status:", response.message);
     }
+  });
+
+  const readStream = fs.createReadStream(filename);
+  readStream.on("data", (chunk) => {
+    call.write({ content: chunk, filename: filename });
+  });
+
+  readStream.on("end", () => {
+    call.end();
+  });
+
+  readStream.on("error", (err) => {
+    console.error("Error reading file:", err);
   });
 }
 
-setInterval(pingClient, 5000);
+function main() {
+  const client = new FileTransferProto.FileTransfer(
+    "localhost:50051",
+    grpc.credentials.createInsecure()
+  );
+  const filename = "send.txt";
+  uploadFile(filename, client);
+}
+
+main();
