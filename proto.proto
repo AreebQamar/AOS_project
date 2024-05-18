@@ -2,14 +2,18 @@ syntax = "proto3";
 
 package PingPongPackage;
 
-service PingPong {
-  rpc Ping(ClientIdentity) returns (PongMessage);
+service FileTransfer {
+  rpc uploadFileToStorage(FileRequest) returns (stream FileResponse);
+  rpc MasterRequestForFilenameToDownload(stream FileResponse) returns (stream FileRequest);
+
 }
 
-message ClientIdentity {
-  string id = 1;
+message FileRequest {
+ string filename = 1;
 }
 
-message PongMessage {
-  string message = 1;
+message FileResponse{
+  string filename = 1;
+  string data = 2;
 }
+

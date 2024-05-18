@@ -2,40 +2,41 @@ const grpc = require("@grpc/grpc-js");
 const protoLoader = require("@grpc/proto-loader");
 const packageDefinition = protoLoader.loadSync("../proto.proto", {});
 const grpcObject = grpc.loadPackageDefinition(packageDefinition);
-const FileTransferProto = grpcObject.FileTransferPackage;
-const fs = require("fs");
+const pingpongProto = grpcObject.PingPongPackage;
 const path = require("path");
+const fs = require("fs");
 
-function uploadFileToStorage(call, callback) {
-  let writeStream;
-  let filename;
-  call.on("data", (chunk) => {
-    if (!writeStream) {
-      filename = chunk.filename;
-      const filePath = path.join("../storage-server/file-storage/", filename);
-      writeStream = fs.createWriteStream(filePath);
-    }
-    writeStream.write(chunk.content);
+function uploadFileToStorage(call) {
+  const filename = call.request.filename;
+  const filepath = path.join(__dirname, filename);
+  const readStream = fs.createReadStream(filepath);
+  readStream.on("data", (chunk) => {
+    call.write({ data: chunk });
   });
-
-  call.on("end", () => {
-    if (writeStream) {
-      writeStream.end();
-      callback(null, { success: true, message: "File uploaded successfully" });
-    } else {
-      callback(null, { success: false, message: "No data received" });
-    }
+  readStream.on("end", () => {
+    call.end();
   });
-
-  call.on("error", (err) => {
-    console.error("Error receiving file:", err);
+  readStream.on("error", (error) => {
+    console.error(error);
+    call.end();
   });
 }
-
+function downloadFileFromStorage(call) {
+  let filename;
+  call.write({ filename: "fetched-test.txt" });
+  const writeStream = fs.createWriteStream("./test.txt");
+  call.on("data", (response) => {
+    writeStream.write(response.data);
+  });
+  call.on("end", () => {
+    call.end();
+  });
+}
 function main() {
   const server = new grpc.Server();
-  server.addService(FileTransferProto.FileTransfer.service, {
-    SendFileToStorage: uploadFileToStorage,
+  server.addService(pingpongProto.FileTransfer.service, {
+    // uploadFileToStorage: uploadFileToStorage,
+    MasterRequestForFilenameToDownload: downloadFileFromStorage,
   });
   const serverAddress = "localhost:50051";
   server.bindAsync(
