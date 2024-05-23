@@ -1,10 +1,14 @@
 syntax = "proto3";
 
-package PingPongPackage;
+package distributedFileSyatemPackage;
 
-service PingPong {
+service fileSystem {
   rpc Ping(ClientIdentity) returns (PongMessage);
+  rpc PingAll(stream ClientIdentity) returns (stream PongMessage); // Bidirectional streaming RPC
+
 }
+
+
 
 message ClientIdentity {
   string id = 1;
@@ -12,4 +16,4 @@ message ClientIdentity {
 
 message PongMessage {
   string message = 1;
-}
+} 
