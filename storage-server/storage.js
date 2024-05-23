@@ -1,53 +1,50 @@
 const grpc = require("@grpc/grpc-js");
 const protoLoader = require("@grpc/proto-loader");
+const fs = require('fs');
 const packageDefinition = protoLoader.loadSync("../proto.proto", {});
 const grpcObject = grpc.loadPackageDefinition(packageDefinition);
-const ourFileSystem = grpcObject.distributedFileSyatemPackage;
+const ourFileSystem = grpcObject.distributedFileSystemPackage;
 
 // Read client ID from command-line arguments
 const args = process.argv.slice(2);
 if (args.length < 1) {
-  console.error("Usage: node client.js <client_id>");
+  console.error("Usage: node chunkServer.js <client_id>");
   process.exit(1);
 }
 const clientId = args[0];
 
-const client = new ourFileSystem.fileSystem(
-  "localhost:50051",
-  grpc.credentials.createInsecure()
-);
+function storeFile(call, callback) {
+  const { client_id, filename, content } = call.request;
+  console.log(`Received file for client: ${client_id}, filename: ${filename}`);
 
-function pingClient() {
-  client.Ping({ id: clientId }, (error, response) => {
+  fs.writeFile(filename, content, (err) => {
+    if (err) {
+      console.error(`Error writing file ${filename}:`, err);
+      callback(null, { message: `Error writing file: ${filename}` });
+      return;
+    }
+
+    console.log(`File ${filename} received and written successfully`);
+    callback(null, { message: `File ${filename} received and written successfully` });
+  });
+}
+
+function main() {
+  const server = new grpc.Server();
+  server.addService(ourFileSystem.fileSystem.service, {
+    StoreFile: storeFile
+  });
+
+  const serverAddress = "localhost:50052"; // Each chunk server runs on a different port
+
+  server.bindAsync(serverAddress, grpc.ServerCredentials.createInsecure(), (error, port) => {
     if (error) {
-      console.error("Client encountered an error:", error);
+      console.error(`Failed to bind server: ${error.message}`);
     } else {
-      console.log("response:", response.message);
+      console.log(`Chunk server running at ${serverAddress}`);
+      // server.start(); // Deprecation warning suggests it's no longer necessary
     }
   });
 }
 
-function startPingAll() {
-  const call = client.PingAll();
-  
-  // Send client identity
-  call.write({ id: clientId });
-
-  call.on('data', (response) => {
-    console.log('Received from server:', response.message);
-  });
-
-  call.on('end', () => {
-    console.log('PingAll stream ended by server');
-  });
-
-  // Send periodic pings to server
-  setInterval(() => {
-    call.write({ id: clientId });
-  }, 5000);
-}
-
-
-startPingAll();
-
-setInterval(pingClient, 5000);
+main();

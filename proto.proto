@@ -1,19 +1,31 @@
 syntax = "proto3";
 
-package distributedFileSyatemPackage;
+package distributedFileSystemPackage;
 
 service fileSystem {
   rpc Ping(ClientIdentity) returns (PongMessage);
   rpc PingAll(stream ClientIdentity) returns (stream PongMessage); // Bidirectional streaming RPC
-
+  rpc SendFile(FileRequest) returns (FileResponse); // Client sends file to master
+  rpc StoreFile(FileRequest) returns (FileResponse); // Master sends file to chunk server
 }
-
-
 
 message ClientIdentity {
   string id = 1;
 }
+message chunkServerList{
+  repeated ClientIdentity = 1;
+}
 
 message PongMessage {
   string message = 1;
-} 
+}
+
+message FileRequest {
+  string client_id = 1;
+  string filename = 2;
+  bytes content = 3;
+}
+
+message FileResponse {
+  string message = 1;
+}
