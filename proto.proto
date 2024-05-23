@@ -2,18 +2,20 @@ syntax = "proto3";
 
 package distributedFileSystemPackage;
 
-service fileSystem {
+service FileSystem {
   rpc Ping(ClientIdentity) returns (PongMessage);
-  rpc PingAll(stream ClientIdentity) returns (stream PongMessage); // Bidirectional streaming RPC
-  rpc SendFile(FileRequest) returns (FileResponse); // Client sends file to master
-  rpc StoreFile(FileRequest) returns (FileResponse); // Master sends file to chunk server
+  rpc Register(ClientIdentity) returns (RegisterResponse);
+  rpc StoreFile(FileRequest) returns (PongMessage);
+  
 }
 
 message ClientIdentity {
   string id = 1;
 }
-message chunkServerList{
-  repeated ClientIdentity = 1;
+
+message RegisterResponse{
+  string message = 1;
+  int32 port = 2;
 }
 
 message PongMessage {
@@ -24,8 +26,4 @@ message FileRequest {
   string client_id = 1;
   string filename = 2;
   bytes content = 3;
-}
-
-message FileResponse {
-  string message = 1;
 }
