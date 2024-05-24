@@ -1,6 +1,6 @@
 const grpc = require("@grpc/grpc-js");
 const protoLoader = require("@grpc/proto-loader");
-const fs = require('fs');
+
 
 const packageDefinition = protoLoader.loadSync("../proto.proto", {});
 const grpcObject = grpc.loadPackageDefinition(packageDefinition);
@@ -12,6 +12,11 @@ const SLAVE_PORT_BASE = 50052;
 let chunkServerCounter = 0;
 const chunkServers = {}; // Store chunk server clients
 
+const fs = require('fs');
+const path = require('path');
+
+const express = require('express');
+const multer = require('multer');
 
 //Master part of the master server, this acts as a master in the system.
 //1. wait for the register request from the chunk server's slave part.
@@ -29,7 +34,7 @@ function register(call, callback) {
 function startMaster() {
   const server = new grpc.Server();
   server.addService(ourFileSystem.FileSystem.service, {
-    Register: register
+    Register: register,
   });
 
   server.bindAsync(
@@ -45,11 +50,11 @@ function startMaster() {
     }
   );
 
-
-  setInterval(() => {
-    checkAndUpdateChunkServerStatus();
+  // saveFile("abd")
+  // setInterval(() => {
+  //   checkAndUpdateChunkServerStatus();
     
-  }, 5000);
+  // }, 5000);
 
 }
 
@@ -100,6 +105,52 @@ function storeFile(call, callback) {
   });
 }
 
+function saveFile(filePath){
+
+  fs.readFile(filePath, (err, data) => {
+  if (err) {
+    console.error(`Error reading file from disk: ${err}`);
+  } else {
+    // Split the data into three parts
+    const partSize = Math.ceil(data.length / 3);
+    const part1 = data.slice(0, partSize);
+    const part2 = data.slice(partSize, 2 * partSize);
+    const part3 = data.slice(2 * partSize);
+
+    // Log each part separately
+    console.log('Part 1:');
+    console.log(part1);
+
+    console.log('Part 2:');
+    console.log(part2);
+
+    console.log('Part 3:');
+    console.log(part3);
+
+    // Combine the parts back together
+    const combinedData = Buffer.concat([part1, part2, part3]);
+
+    // Log the combined data
+    console.log('\nCombined Data:');
+    console.log(combinedData);
+
+    // Optionally, you can also write the combined data back to a file to verify it
+    fs.writeFile(path.join(__dirname, 'combined_example.png'), combinedData, (err) => {
+      if (err) {
+        console.error(`Error writing combined file: ${err}`);
+      } else {
+        console.log('Combined data written to combined_example.txt');
+      }
+    });
+  }
+});
+
+  //checkAndUpdateChunkServerStatus();
+  //const numberOfAvailableServers = Object.keys(chunkServers).length;
+
+
+
+}
 function sendFileToChunkServer(chunkServerId, filename) {
   const chunkServerClient = chunkServers[chunkServerId].client;
   fs.readFile(filename, (err, data) => {
@@ -121,4 +172,51 @@ function sendFileToChunkServer(chunkServerId, filename) {
 
 // Start the master and chunk server processes
 
+const app = express();
+const upload = multer({ dest: 'uploads/' });
+
+app.post('/upload', upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).send('No file uploaded.');
+  }
+
+  const filePath = path.join(__dirname, req.file.path);
+  const filename = req.file.originalname;
+
+  saveFile(filePath);
+  // fs.readFile(filePath, (err, data) => {
+  //   if (err) {
+  //     console.error(`Error reading file from disk: ${err}`);
+  //     return res.status(500).send('Error reading file from disk.');
+  //   }
+
+  //   // Use gRPC client to send the file to the master server
+  //   const client = new ourFileSystem.FileSystem(
+  //     `localhost:${MASTER_PORT}`,
+  //     grpc.credentials.createInsecure()
+  //   );
+
+  //   client.UploadFile({ filename, content: data }, (error, response) => {
+  //     if (error) {
+  //       console.error(`Error uploading file: ${error}`);
+  //       return res.status(500).send('Error uploading file to master server.');
+  //     } else {
+  //       console.log(`Response from server: ${response.message}`);
+  //       return res.status(200).send(`File uploaded successfully: ${response.message}`);
+  //     }
+  //   });
+  // });
+
+
+});
+app.get('/', (req, res) => {
+  res.send('Server is running');
+});
+const HTTP_PORT = 4000; // port for client application.
+app.listen(HTTP_PORT, () => {
+  console.log(`Express server running on port ${HTTP_PORT}`);
+});
+
 startMaster();
+
+

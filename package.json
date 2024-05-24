@@ -1,6 +1,8 @@
 {
   "dependencies": {
     "@grpc/grpc-js": "^1.10.7",
-    "@grpc/proto-loader": "^0.7.13"
+    "@grpc/proto-loader": "^0.7.13",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1"
   }
 }

@@ -5,7 +5,7 @@ package distributedFileSystemPackage;
 service FileSystem {
   rpc Ping(ClientIdentity) returns (PongMessage);
   rpc Register(ClientIdentity) returns (RegisterResponse);
-  rpc StoreFile(FileRequest) returns (PongMessage);
+  rpc storeChunk(ChunkData) returns (ChunkData);
   
 }
 
@@ -22,8 +22,8 @@ message PongMessage {
   string message = 1;
 }
 
-message FileRequest {
-  string client_id = 1;
-  string filename = 2;
-  bytes content = 3;
+message ChunkData{
+  ClientIdentity clienId = 1;
+  string mataData = 2;
+  string data = 3;
 }
