@@ -105,45 +105,61 @@ function storeFile(call, callback) {
   });
 }
 
-function saveFile(filePath){
+function createFileChunks(fileData, n){
+  const chunks = [];
 
-  fs.readFile(filePath, (err, data) => {
-  if (err) {
-    console.error(`Error reading file from disk: ${err}`);
-  } else {
-    // Split the data into three parts
-    const partSize = Math.ceil(data.length / 3);
-    const part1 = data.slice(0, partSize);
-    const part2 = data.slice(partSize, 2 * partSize);
-    const part3 = data.slice(2 * partSize);
+  const chunkSize = Math.ceil(fileData.length / n);
 
-    // Log each part separately
-    console.log('Part 1:');
-    console.log(part1);
+  for(var i = 0; i < n+1; i++){
+    const chunk = fileData.slice(i*chunkSize, (i+1)*chunkSize);
+    chunks.push(chunk);
+  }
+  return chunks;
+}
 
-    console.log('Part 2:');
-    console.log(part2);
-
-    console.log('Part 3:');
-    console.log(part3);
-
-    // Combine the parts back together
-    const combinedData = Buffer.concat([part1, part2, part3]);
-
-    // Log the combined data
-    console.log('\nCombined Data:');
-    console.log(combinedData);
-
-    // Optionally, you can also write the combined data back to a file to verify it
-    fs.writeFile(path.join(__dirname, 'combined_example.png'), combinedData, (err) => {
+function saveFile(filePath) {
+  return new Promise((resolve, reject) => {
+    fs.readFile(filePath, (err, data) => {
       if (err) {
-        console.error(`Error writing combined file: ${err}`);
+        console.error(`Error processing file: ${err}\n`);
+        reject(err);
       } else {
-        console.log('Combined data written to combined_example.txt');
+        const chunks = createFileChunks(data, 3);
+        const part1 = chunks[0];
+        const part2 = chunks[1];
+        const part3 = chunks[2];
+
+        // Log each part separately
+        console.log('Part 1:');
+        console.log(part1);
+
+        console.log('Part 2:');
+        console.log(part2);
+
+        console.log('Part 3:');
+        console.log(part3);
+
+        // Combine the parts back together
+        const combinedData = Buffer.concat([part1, part2, part3]);
+
+        // Log the combined data
+        console.log('\nCombined Data:');
+        console.log(combinedData);
+
+        // Optionally, you can also write the combined data back to a file to verify it
+        fs.writeFile(path.join(__dirname, 'combined_example.png'), combinedData, (err) => {
+          if (err) {
+            console.error(`Error writing combined file: ${err}`);
+            reject(err);
+          } else {
+            console.log('Combined data written to combined_example.txt');
+            resolve();
+          }
+        });
       }
     });
-  }
-});
+  });
+
 
   //checkAndUpdateChunkServerStatus();
   //const numberOfAvailableServers = Object.keys(chunkServers).length;
@@ -183,7 +199,16 @@ app.post('/upload', upload.single('file'), (req, res) => {
   const filePath = path.join(__dirname, req.file.path);
   const filename = req.file.originalname;
 
-  saveFile(filePath);
+
+  saveFile(filePath)
+  .then(() => {
+    res.status(200).send('File uploaded successfully');
+  })
+  .catch((err) => {
+    res.status(500).send('Error processing file: ' + err.message);
+  });
+
+
   // fs.readFile(filePath, (err, data) => {
   //   if (err) {
   //     console.error(`Error reading file from disk: ${err}`);
