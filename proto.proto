@@ -23,7 +23,7 @@ message PongMessage {
 }
 
 message ChunkData{
-  string clientId = 1;
+  ClientIdentity clienId = 1;
   string mataData = 2;
   string data = 3;
 }

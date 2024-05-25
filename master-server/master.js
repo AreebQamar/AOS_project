@@ -58,65 +58,52 @@ function startMaster() {
 
 }
 
-function markChunkServerOffline(chunkServerId) {
+function checkAndUpdateChunkServerStatus(){
+ 
+  for (const chunkServerId in chunkServers) {
+    pingChunkServer(chunkServerId);
+    // console.log(chunkServerId.id, chunkServerId.port);
+  }
+}
+function markChunkServerOffline(chunkServerId){
   if (chunkServers[chunkServerId]) {
     delete chunkServers[chunkServerId];
   }
 }
-
 function pingChunkServer(chunkServerId) {
-  return new Promise((resolve, reject) => {
-    const slave = new ourFileSystem.FileSystem(
-      `localhost:${chunkServers[chunkServerId].port}`,
-      grpc.credentials.createInsecure()
-    );
 
-    console.log(`sending ping to chunkServer: ${chunkServerId}`);
-    slave.Ping({ id: chunkServers[chunkServerId].id }, (error, response) => {
-      if (error) {
-        console.error("Error \nMarking it offline.");
-        markChunkServerOffline(chunkServerId);
-        reject(error);
-      } else {
-        console.log("response: ", response.message, "\n");
-        resolve(response);
-      }
-    });
+  const slave = new ourFileSystem.FileSystem(
+    `localhost:${chunkServers[chunkServerId].port}`,
+    grpc.credentials.createInsecure()
+  );
+
+  console.log(`sending ping to chunkServer: ${chunkServerId}`);
+  slave.Ping({ id: chunkServers[chunkServerId].id}, (error, response) => {
+    if (error) {
+      console.error("Error \nMarking it offine.");
+      markChunkServerOffline(chunkServerId);
+    } else {
+      console.log("response: ", response.message, "\n");
+    }
   });
 }
 
-async function checkAndUpdateChunkServerStatus() {
-  const pingPromises = [];
-
-  for (const chunkServerId in chunkServers) {
-    pingPromises.push(pingChunkServer(chunkServerId));
-  }
-
-  try {
-    await Promise.all(pingPromises);
-    console.log('All chunk servers have been pinged.');
-  } catch (error) {
-    console.error('Error pinging some chunk servers:', error);
-  }
-}
-
-
 // Slave part (for chunk servers to register and store files)
-// function storeFile(call, callback) {
-//   const { client_id, filename, content } = call.request;
-//   console.log(`Received file for client: ${client_id}, filename: ${filename}`);
+function storeFile(call, callback) {
+  const { client_id, filename, content } = call.request;
+  console.log(`Received file for client: ${client_id}, filename: ${filename}`);
 
-//   fs.writeFile(filename, content, (err) => {
-//     if (err) {
-//       console.error(`Error writing file ${filename}:`, err);
-//       callback(null, { message: `Error writing file: ${filename}` });
-//       return;
-//     }
+  fs.writeFile(filename, content, (err) => {
+    if (err) {
+      console.error(`Error writing file ${filename}:`, err);
+      callback(null, { message: `Error writing file: ${filename}` });
+      return;
+    }
 
-//     console.log(`File ${filename} received and written successfully`);
-//     callback(null, { message: `File ${filename} received and written successfully` });
-//   });
-// }
+    console.log(`File ${filename} received and written successfully`);
+    callback(null, { message: `File ${filename} received and written successfully` });
+  });
+}
 
 function createFileChunks(fileData, n){
   const chunks = [];
@@ -131,77 +118,71 @@ function createFileChunks(fileData, n){
 }
 
 function saveFile(filePath) {
-
-  
   return new Promise((resolve, reject) => {
     fs.readFile(filePath, (err, data) => {
       if (err) {
         console.error(`Error processing file: ${err}\n`);
         reject(err);
       } else {
-        
-        (async () => {
-          await checkAndUpdateChunkServerStatus();
-        })();
-        const numberOfAvailableServers = Object.keys(chunkServers).length;
-        
-        console.log("available chunk server: ", numberOfAvailableServers);
+        const chunks = createFileChunks(data, 3);
+        const part1 = chunks[0];
+        const part2 = chunks[1];
+        const part3 = chunks[2];
 
-        const chunks = createFileChunks(data, numberOfAvailableServers);
-        
-        console.log("chunks of the file: \n");
-         for (chunkServerId in chunkServers){
-          
-          sendFileToChunkServer(chunkServerId, `chunk ${chunkServerId}`, chunks[chunkServerId - 1]);
+        // Log each part separately
+        console.log('Part 1:');
+        console.log(part1);
 
-        }       
-        resolve();
+        console.log('Part 2:');
+        console.log(part2);
+
+        console.log('Part 3:');
+        console.log(part3);
 
         // Combine the parts back together
-        // const combinedData = Buffer.concat([part1, part2, part3]);
+        const combinedData = Buffer.concat([part1, part2, part3]);
 
-        // // Log the combined data
-        // console.log('\nCombined Data:');
-        // console.log(combinedData);
+        // Log the combined data
+        console.log('\nCombined Data:');
+        console.log(combinedData);
 
-        // // Optionally, you can also write the combined data back to a file to verify it
-        // fs.writeFile(path.join(__dirname, 'combined_example.png'), combinedData, (err) => {
-        //   if (err) {
-        //     console.error(`Error writing combined file: ${err}`);
-        //     reject(err);
-        //   } else {
-        //     console.log('Combined data written to combined_example.txt');
-        //     resolve();
-        //   }
-        // });
-
-
+        // Optionally, you can also write the combined data back to a file to verify it
+        fs.writeFile(path.join(__dirname, 'combined_example.png'), combinedData, (err) => {
+          if (err) {
+            console.error(`Error writing combined file: ${err}`);
+            reject(err);
+          } else {
+            console.log('Combined data written to combined_example.txt');
+            resolve();
+          }
+        });
       }
     });
   });
 
 
+  //checkAndUpdateChunkServerStatus();
+  //const numberOfAvailableServers = Object.keys(chunkServers).length;
 
 
 
 }
-function sendFileToChunkServer(chunkServerId, mataData, chunk) {
+function sendFileToChunkServer(chunkServerId, filename) {
+  const chunkServerClient = chunkServers[chunkServerId].client;
+  fs.readFile(filename, (err, data) => {
+    if (err) {
+      console.error(`Error reading file ${filename}:`, err);
+      return;
+    }
 
-  console.log(`\nid: ${chunkServerId}, port: ${chunkServers[chunkServerId].port}`);
-  console.log("mata data :", mataData);
-  console.log("chunk: ", chunk, "\n");
-  const slave = new ourFileSystem.FileSystem(
-    `localhost:${chunkServers[chunkServerId].port}`,
-    grpc.credentials.createInsecure()
-  );
-
-    slave.storeChunk({ clientId: chunkServerId, mataData, data: chunk }, (error, response) => {
+    chunkServerClient.StoreFile({ client_id: chunkServerId, filename, content: data }, (error, response) => {
       if (error) {
-        console.error(`Error sending chunk to ${chunkServerId}:`, error);
+        console.error(`Error sending file to chunk server ${chunkServerId}:`, error);
       } else {
-        console.log(`Chunk sent to ${chunkServerId}`, response);
+        console.log(`File sent to chunk server ${chunkServerId}:`, response.message);
       }
     });
+  });
 }
 
 
