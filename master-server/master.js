@@ -18,6 +18,17 @@ const path = require('path');
 const express = require('express');
 const multer = require('multer');
 
+const crypto = require('crypto');
+
+function getChecksum(inputString) {
+  const hash = crypto.createHash('sha256'); // Create a SHA-256 hash instance
+  hash.update(inputString); // Update the hash with the input string
+  const checksum = hash.digest('hex'); // Get the checksum as a hexadecimal string
+  return checksum;
+}
+
+
+
 //Master part of the master server, this acts as a master in the system.
 //1. wait for the register request from the chunk server's slave part.
 //2. upon receiving the register request, is saves the client id.
@@ -185,17 +196,18 @@ function saveFile(filePath) {
 
 
 }
-function sendFileToChunkServer(chunkServerId, mataData, chunk) {
+function sendFileToChunkServer(chunkServerId, metaData, chunk) {
 
   console.log(`\nid: ${chunkServerId}, port: ${chunkServers[chunkServerId].port}`);
-  console.log("mata data :", mataData);
+  console.log("mata data :", metaData);
   console.log("chunk: ", chunk, "\n");
+
   const slave = new ourFileSystem.FileSystem(
     `localhost:${chunkServers[chunkServerId].port}`,
     grpc.credentials.createInsecure()
   );
 
-    slave.storeChunk({ clientId: chunkServerId, mataData, data: chunk }, (error, response) => {
+    slave.storeChunk({ clientId: chunkServerId, metaData, data: chunk }, (error, response) => {
       if (error) {
         console.error(`Error sending chunk to ${chunkServerId}:`, error);
       } else {
