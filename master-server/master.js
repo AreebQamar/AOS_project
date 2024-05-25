@@ -1,6 +1,10 @@
 const grpc = require("@grpc/grpc-js");
 const protoLoader = require("@grpc/proto-loader");
-
+const express = require('express');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 
 const packageDefinition = protoLoader.loadSync("../proto.proto", {});
 const grpcObject = grpc.loadPackageDefinition(packageDefinition);
@@ -12,14 +16,6 @@ const SLAVE_PORT_BASE = 50052;
 let chunkServerCounter = 0;
 const chunkServers = {}; // Store chunk server clients
 
-const fs = require('fs');
-const path = require('path');
-
-const express = require('express');
-const multer = require('multer');
-
-const crypto = require('crypto');
-
 function getChecksum(inputString) {
   const hash = crypto.createHash('sha256'); // Create a SHA-256 hash instance
   hash.update(inputString); // Update the hash with the input string
@@ -27,12 +23,6 @@ function getChecksum(inputString) {
   return checksum;
 }
 
-
-
-//Master part of the master server, this acts as a master in the system.
-//1. wait for the register request from the chunk server's slave part.
-//2. upon receiving the register request, is saves the client id.
-//3. this information will be used by the slave part of the master server.
 function register(call, callback) {
   const clientId = call.request.id;
   console.log(`Register request from chunk server: ${clientId}`);
@@ -56,17 +46,9 @@ function startMaster() {
         console.error(`Failed to bind server: ${error.message}\n`);
       } else {
         console.log(`Master server running at localhost:${port}\n`);
-        server.start();
       }
     }
   );
-
-  // saveFile("abd")
-  // setInterval(() => {
-  //   checkAndUpdateChunkServerStatus();
-    
-  // }, 5000);
-
 }
 
 function markChunkServerOffline(chunkServerId) {
@@ -85,9 +67,9 @@ function pingChunkServer(chunkServerId) {
     console.log(`sending ping to chunkServer: ${chunkServerId}`);
     slave.Ping({ id: chunkServers[chunkServerId].id }, (error, response) => {
       if (error) {
-        console.error("Error \nMarking it offline.");
+        console.error("Error pinging chunk server, marking it offline:", error);
         markChunkServerOffline(chunkServerId);
-        reject(error);
+        resolve(null); // resolve with null to indicate failure, but don't reject
       } else {
         console.log("response: ", response.message, "\n");
         resolve(response);
@@ -103,121 +85,78 @@ async function checkAndUpdateChunkServerStatus() {
     pingPromises.push(pingChunkServer(chunkServerId));
   }
 
-  try {
-    await Promise.all(pingPromises);
-    console.log('All chunk servers have been pinged.');
-  } catch (error) {
-    console.error('Error pinging some chunk servers:', error);
-  }
+  await Promise.all(pingPromises);
+  console.log('All chunk servers have been pinged.');
 }
 
-
-// Slave part (for chunk servers to register and store files)
-// function storeFile(call, callback) {
-//   const { client_id, filename, content } = call.request;
-//   console.log(`Received file for client: ${client_id}, filename: ${filename}`);
-
-//   fs.writeFile(filename, content, (err) => {
-//     if (err) {
-//       console.error(`Error writing file ${filename}:`, err);
-//       callback(null, { message: `Error writing file: ${filename}` });
-//       return;
-//     }
-
-//     console.log(`File ${filename} received and written successfully`);
-//     callback(null, { message: `File ${filename} received and written successfully` });
-//   });
-// }
-
-function createFileChunks(fileData, n){
+function createFileChunks(fileData, n) {
   const chunks = [];
-
   const chunkSize = Math.ceil(fileData.length / n);
 
-  for(var i = 0; i < n+1; i++){
-    const chunk = fileData.slice(i*chunkSize, (i+1)*chunkSize);
+  for (let i = 0; i < n; i++) {
+    const chunk = fileData.slice(i * chunkSize, (i + 1) * chunkSize);
     chunks.push(chunk);
   }
   return chunks;
 }
 
 function saveFile(filePath) {
-
-  
   return new Promise((resolve, reject) => {
-    fs.readFile(filePath, (err, data) => {
+    fs.readFile(filePath, async (err, data) => {
       if (err) {
         console.error(`Error processing file: ${err}\n`);
-        reject(err);
-      } else {
-        
-        (async () => {
-          await checkAndUpdateChunkServerStatus();
-        })();
+        return reject(err);
+      }
+
+      try {
+        await checkAndUpdateChunkServerStatus();
+
         const numberOfAvailableServers = Object.keys(chunkServers).length;
-        
-        console.log("available chunk server: ", numberOfAvailableServers);
+        if (numberOfAvailableServers === 0) {
+          return reject(new Error("No available chunk servers."));
+        }
 
         const chunks = createFileChunks(data, numberOfAvailableServers);
-        
-        console.log("chunks of the file: \n");
-         for (chunkServerId in chunkServers){
-          
-          sendFileToChunkServer(chunkServerId, `chunk ${chunkServerId}`, chunks[chunkServerId - 1]);
 
-        }       
+        const chunkPromises = [];
+        for (const chunkServerId in chunkServers) {
+          chunkPromises.push(
+            sendFileToChunkServer(chunkServerId, `chunk ${chunkServerId}`, chunks[chunkServerId - 1])
+          );
+        }
+
+        await Promise.all(chunkPromises);
         resolve();
-
-        // Combine the parts back together
-        // const combinedData = Buffer.concat([part1, part2, part3]);
-
-        // // Log the combined data
-        // console.log('\nCombined Data:');
-        // console.log(combinedData);
-
-        // // Optionally, you can also write the combined data back to a file to verify it
-        // fs.writeFile(path.join(__dirname, 'combined_example.png'), combinedData, (err) => {
-        //   if (err) {
-        //     console.error(`Error writing combined file: ${err}`);
-        //     reject(err);
-        //   } else {
-        //     console.log('Combined data written to combined_example.txt');
-        //     resolve();
-        //   }
-        // });
-
-
+      } catch (error) {
+        reject(error);
       }
     });
   });
-
-
-
-
-
 }
+
 function sendFileToChunkServer(chunkServerId, metaData, chunk) {
+  return new Promise((resolve, reject) => {
+    console.log(`\nid: ${chunkServerId}, port: ${chunkServers[chunkServerId].port}`);
+    console.log("meta data :", metaData);
+    console.log("chunk: ", chunk, "\n");
 
-  console.log(`\nid: ${chunkServerId}, port: ${chunkServers[chunkServerId].port}`);
-  console.log("mata data :", metaData);
-  console.log("chunk: ", chunk, "\n");
+    const slave = new ourFileSystem.FileSystem(
+      `localhost:${chunkServers[chunkServerId].port}`,
+      grpc.credentials.createInsecure()
+    );
 
-  const slave = new ourFileSystem.FileSystem(
-    `localhost:${chunkServers[chunkServerId].port}`,
-    grpc.credentials.createInsecure()
-  );
-
-    slave.storeChunk({ clientId: chunkServerId, metaData, data: chunk }, (error, response) => {
+    const checkSum = getChecksum(metaData + chunk);
+    slave.storeChunk({ clientId: chunkServerId, metaData, data: chunk, checkSum }, (error, response) => {
       if (error) {
         console.error(`Error sending chunk to ${chunkServerId}:`, error);
+        return reject(error);
       } else {
-        console.log(`Chunk sent to ${chunkServerId}`, response);
+        console.log(response);
+        resolve(response);
       }
     });
+  });
 }
-
-
-// Start the master and chunk server processes
 
 const app = express();
 const upload = multer({ dest: 'uploads/' });
@@ -230,49 +169,22 @@ app.post('/upload', upload.single('file'), (req, res) => {
   const filePath = path.join(__dirname, req.file.path);
   const filename = req.file.originalname;
 
-
   saveFile(filePath)
-  .then(() => {
-    res.status(200).send('File uploaded successfully');
-  })
-  .catch((err) => {
-    res.status(500).send('Error processing file: ' + err.message);
-  });
-
-
-  // fs.readFile(filePath, (err, data) => {
-  //   if (err) {
-  //     console.error(`Error reading file from disk: ${err}`);
-  //     return res.status(500).send('Error reading file from disk.');
-  //   }
-
-  //   // Use gRPC client to send the file to the master server
-  //   const client = new ourFileSystem.FileSystem(
-  //     `localhost:${MASTER_PORT}`,
-  //     grpc.credentials.createInsecure()
-  //   );
-
-  //   client.UploadFile({ filename, content: data }, (error, response) => {
-  //     if (error) {
-  //       console.error(`Error uploading file: ${error}`);
-  //       return res.status(500).send('Error uploading file to master server.');
-  //     } else {
-  //       console.log(`Response from server: ${response.message}`);
-  //       return res.status(200).send(`File uploaded successfully: ${response.message}`);
-  //     }
-  //   });
-  // });
-
-
+    .then(() => {
+      res.status(200).send('File uploaded successfully');
+    })
+    .catch((err) => {
+      res.status(500).send('Error processing file: ' + err.message);
+    });
 });
+
 app.get('/', (req, res) => {
   res.send('Server is running');
 });
+
 const HTTP_PORT = 4000; // port for client application.
 app.listen(HTTP_PORT, () => {
   console.log(`Express server running on port ${HTTP_PORT}`);
 });
 
 startMaster();
-
-

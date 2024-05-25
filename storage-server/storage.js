@@ -41,13 +41,26 @@ function ping(call, callback) {
 // }
 
 function storeChunk(call, callback) {
-  const { clientId, metaData, data } = call.request;
+    const { clientId, metaData, data, checkSum } = call.request;
+    console.log("Chunk received");
 
-  console.log(`Received file for client: ${clientId}, mataData: ${metaData}, Data: ${data}`);
+    //for testing error handling.
+    // if(clientId == "2"){
+    //     console.log("check Sum does not match!!")
+    //     return callback(new Error("check Sum does not match!!"));
+    // }
+    if (checkSum == getChecksum( metaData + data))
+    {
+        console.log(`client: ${clientId}, mataData: ${metaData}, Data: ${data}`);
+        callback(null, { message: "saved!"});
+        
+    }
+    else{
+        console.log("check Sum does not match!!")
+        return callback(new Error("check Sum does not match!!"));
+    }
 
-
-  const checkSum = getChecksum( metaData + data);
-  callback(null, { checkSum: checkSum});
+ 
 //   fs.writeFile(filename, content, (err) => {
 //     if (err) {
 //       console.error(`Error writing file ${filename}:`, err);
@@ -58,6 +71,7 @@ function storeChunk(call, callback) {
 //     console.log(`File ${filename} received and written successfully`);
 //     callback(null, { message: `File ${filename} received and written successfully` });
 //   });
+
 }
 
 
@@ -77,43 +91,12 @@ function startMaster(port) {
       if (error) {
         console.error(`Failed to bind server: ${error.message}`);
       } else {
-        console.log(`Now listening for master requests at:${port}`);
-        master.start();
+        console.log(`Now listening for master requests at:${port}\n`);
+      
       }
     }
   );
 }
-
-// function pingChunkServer(chunkServerId) {
-//   const chunkServerClient = chunkServers[chunkServerId].client;
-//   chunkServerClient.Ping({ id: chunkServerId }, (error, response) => {
-//     if (error) {
-//       console.error(`Error pinging chunk server ${chunkServerId}:`, error);
-//       chunkServers[chunkServerId].online = false;
-//     } else {
-//       console.log(`Ping response from chunk server ${chunkServerId}:`, response.message);
-//       chunkServers[chunkServerId].online = true;
-//     }
-//   });
-// }
-
-// function sendFileToChunkServer(chunkServerId, filename) {
-//   const chunkServerClient = chunkServers[chunkServerId].client;
-//   fs.readFile(filename, (err, data) => {
-//     if (err) {
-//       console.error(`Error reading file ${filename}:`, err);
-//       return;
-//     }
-
-//     chunkServerClient.StoreFile({ client_id: chunkServerId, filename, content: data }, (error, response) => {
-//       if (error) {
-//         console.error(`Error sending file to chunk server ${chunkServerId}:`, error);
-//       } else {
-//         console.log(`File sent to chunk server ${chunkServerId}:`, response.message);
-//       }
-//     });
-//   });
-// }
 
 // Initialize the chunk server as a slave and then register with the master
 function initializeChunkServer(clientId) {

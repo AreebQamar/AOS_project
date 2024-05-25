@@ -26,8 +26,9 @@ message ChunkData{
   string clientId = 1;
   string metaData = 2;
   string data = 3;
+  string checkSum = 4;
 }
 
 message chunkReceived{
-  string checkSum = 1;
+  string message = 1;
 }
