@@ -100,7 +100,14 @@ function createFileChunks(fileData, n) {
   return chunks;
 }
 
-function saveFile(fileBuffer) {
+function saveFile(fileName, fileBuffer) {
+  
+  const metaData = {
+    fileName,
+    chunkIDs:[],
+    chunks:{}
+  };
+
   return new Promise(async (resolve, reject) => {
     try {
       await checkAndUpdateChunkServerStatus();
@@ -115,10 +122,15 @@ function saveFile(fileBuffer) {
       console.log("chunks of the file: \n");
 
       const chunkPromises = Object.keys(chunkServers).map(chunkServerId => {
+        const chunkId = chunkServerId - 1;
+        metaData.chunkIDs.push(chunkId);
+        metaData.chunks[chunkId] = {chunkServerId, chunkPort: chunkServers[chunkServerId].port};
         return sendFileToChunkServer(chunkServerId, `chunk ${chunkServerId}`, chunks[chunkServerId - 1]);
       });
 
       await Promise.all(chunkPromises);
+
+      saveMetadata(metaData)
       resolve();
     } catch (err) {
       reject(err);
@@ -150,17 +162,54 @@ function sendFileToChunkServer(chunkServerId, metaData, chunk) {
   });
 }
 
-function saveMetadata(metadata, filePath) {
-  fs.writeFileSync(filePath, JSON.stringify(metadata, null, 2), 'utf-8');
+function saveMetadata(metaData) {
+  const metadataFilePath = path.join(__dirname, 'metadata.json');
+
+  // console.log("\n\n meta data: ",metaData,"\n\n");
+  
+  fs.open(metadataFilePath, 'a+', (err, fd) => {
+    if (err) {
+      console.error('Error opening metadata file:', err);
+      return;
+    }
+    
+    fs.readFile(fd, 'utf8', (err, data) => {
+      if (err) {
+        console.error('Error reading metadata file:', err);
+        return;
+      }
+
+      let newEntry = JSON.stringify(metaData, null, 2);
+
+      if (data.length === 0) {
+        // New file, start the JSON array
+        newEntry = `[${newEntry}]`;
+      }
+      else {
+        // Existing file, remove the last `]` to append new entry
+        const trimmedData = data.trim();
+        if (trimmedData.endsWith(']')) {
+          const updatedData = trimmedData.slice(0, -1);
+          newEntry = `,${newEntry}]`;
+          newEntry = updatedData + newEntry;
+        }
+        else {
+          console.error('Invalid JSON structure in metadata file');
+          return;
+        }
+      }
+
+      fs.writeFile(metadataFilePath, newEntry, 'utf8', (err) => {
+        if (err) {
+          console.error('Error writing metadata file:', err);
+        }
+        else {
+          console.log('Metadata updated successfully');
+        }
+      });
+    });
+  });
 }
-
-// Example usage
-const metadata = {
-  "files": [
-    // ...file metadata as described above
-  ]
-};
-
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -170,11 +219,11 @@ app.post('/upload', upload.single('file'), (req, res) => {
     return res.status(400).send('No file uploaded.');
   }
 
-  const filename = req.file.originalname;
+  const fileName = req.file.originalname;
   const fileBuffer = req.file.buffer;
-  console.log("\n\nFile Name: ", filename, "\n\n");
+  // console.log("\n\nFile Name: ", filename, "\nBuffer: ", fileBuffer);
 
-  saveFile(fileBuffer)
+  saveFile(fileName, fileBuffer)
     .then(() => {
       res.status(200).send('File uploaded successfully');
     })
