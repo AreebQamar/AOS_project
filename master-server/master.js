@@ -15,6 +15,7 @@ const SLAVE_PORT_BASE = 50052;
 
 let chunkServerCounter = 0;
 const chunkServers = {}; // Store chunk server clients
+const metadataFilePath = path.join(__dirname, 'metadata.json');
 
 function getChecksum(inputString) {
   const hash = crypto.createHash('sha256'); // Create a SHA-256 hash instance
@@ -232,8 +233,27 @@ app.post('/upload', upload.single('file'), (req, res) => {
     });
 });
 
-app.get('/', (req, res) => {
-  res.send('Server is running');
+app.get('/fileNames', (req, res) => {
+  fs.readFile(metadataFilePath, 'utf8', (err, data) => {
+    if (err) {
+      console.error('Error reading metadata file:', err);
+      return res.status(500).send('Error reading metadata file');
+    }
+
+    try {
+      // Parse the JSON data
+      const metadata = JSON.parse(data);
+
+      // Extract the file names from the metadata
+      const fileNames = metadata.map(entry => entry.fileName);
+
+      // Send the list of file names as a JSON response
+      res.json({ files: fileNames });
+    } catch (parseError) {
+      console.error('Error parsing metadata file:', parseError);
+      res.status(500).send('Error parsing metadata file');
+    }
+  });
 });
 
 const HTTP_PORT = 4000; // port for client application.
