@@ -100,37 +100,29 @@ function createFileChunks(fileData, n) {
   return chunks;
 }
 
-function saveFile(filePath) {
-  return new Promise((resolve, reject) => {
-    fs.readFile(filePath, async (err, data) => {
-      if (err) {
-        console.error(`Error processing file: ${err}\n`);
-        return reject(err);
+function saveFile(fileBuffer) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      await checkAndUpdateChunkServerStatus();
+
+      const numberOfAvailableServers = Object.keys(chunkServers).length;
+      if(numberOfAvailableServers < 1)
+      {
+        reject(new Error("No chunk Server Available."));
       }
+      const chunks = createFileChunks(fileBuffer, numberOfAvailableServers);
 
-      try {
-        await checkAndUpdateChunkServerStatus();
+      console.log("chunks of the file: \n");
 
-        const numberOfAvailableServers = Object.keys(chunkServers).length;
-        if (numberOfAvailableServers === 0) {
-          return reject(new Error("No available chunk servers."));
-        }
+      const chunkPromises = Object.keys(chunkServers).map(chunkServerId => {
+        return sendFileToChunkServer(chunkServerId, `chunk ${chunkServerId}`, chunks[chunkServerId - 1]);
+      });
 
-        const chunks = createFileChunks(data, numberOfAvailableServers);
-
-        const chunkPromises = [];
-        for (const chunkServerId in chunkServers) {
-          chunkPromises.push(
-            sendFileToChunkServer(chunkServerId, `chunk ${chunkServerId}`, chunks[chunkServerId - 1])
-          );
-        }
-
-        await Promise.all(chunkPromises);
-        resolve();
-      } catch (error) {
-        reject(error);
-      }
-    });
+      await Promise.all(chunkPromises);
+      resolve();
+    } catch (err) {
+      reject(err);
+    }
   });
 }
 
@@ -158,18 +150,31 @@ function sendFileToChunkServer(chunkServerId, metaData, chunk) {
   });
 }
 
+function saveMetadata(metadata, filePath) {
+  fs.writeFileSync(filePath, JSON.stringify(metadata, null, 2), 'utf-8');
+}
+
+// Example usage
+const metadata = {
+  "files": [
+    // ...file metadata as described above
+  ]
+};
+
+
 const app = express();
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ storage: multer.memoryStorage() });
 
 app.post('/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).send('No file uploaded.');
   }
 
-  const filePath = path.join(__dirname, req.file.path);
   const filename = req.file.originalname;
+  const fileBuffer = req.file.buffer;
+  console.log("\n\nFile Name: ", filename, "\n\n");
 
-  saveFile(filePath)
+  saveFile(fileBuffer)
     .then(() => {
       res.status(200).send('File uploaded successfully');
     })
@@ -188,3 +193,23 @@ app.listen(HTTP_PORT, () => {
 });
 
 startMaster();
+
+
+
+// Combine the parts back together
+        // const combinedData = Buffer.concat([part1, part2, part3]);
+
+        // // Log the combined data
+        // console.log('\nCombined Data:');
+        // console.log(combinedData);
+
+        // // Optionally, you can also write the combined data back to a file to verify it
+        // fs.writeFile(path.join(__dirname, 'combined_example.png'), combinedData, (err) => {
+        //   if (err) {
+        //     console.error(`Error writing combined file: ${err}`);
+        //     reject(err);
+        //   } else {
+        //     console.log('Combined data written to combined_example.txt');
+        //     resolve();
+        //   }
+        // });
