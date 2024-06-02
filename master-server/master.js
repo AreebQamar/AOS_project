@@ -233,7 +233,7 @@ app.post('/upload', upload.single('file'), (req, res) => {
     });
 });
 
-app.get('/fileNames', (req, res) => {
+app.get('/filenames', (req, res) => {
   fs.readFile(metadataFilePath, 'utf8', (err, data) => {
     if (err) {
       console.error('Error reading metadata file:', err);
