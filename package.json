@@ -1,8 +1,19 @@
 {
   "dependencies": {
     "@grpc/grpc-js": "^1.10.7",
+<<<<<<< HEAD
     "@grpc/proto-loader": "^0.7.13",
     "express": "^4.19.2",
     "multer": "^1.4.5-lts.1"
+=======
+<<<<<<< Updated upstream
+    "@grpc/proto-loader": "^0.7.13"
+=======
+    "@grpc/proto-loader": "^0.7.13",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1"
+>>>>>>> Stashed changes
+>>>>>>> 8ab25adade6057b5b2e61adf7ba667c18186b0cc
   }
 }

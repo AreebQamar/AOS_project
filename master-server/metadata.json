@@ -1,0 +1,130 @@
+[{
+  "fileName": "new.txt",
+  "chunkIDs": [
+    null
+  ],
+  "chunks": {
+    "NaN": {
+      "chunkServerId": "client1",
+      "chunkPort": 50052
+    }
+  }
+},{
+  "fileName": "new.txt",
+  "chunkIDs": [
+    null
+  ],
+  "chunks": {
+    "NaN": {
+      "chunkServerId": "client1",
+      "chunkPort": 50052
+    }
+  }
+},{
+  "fileName": "new.txt",
+  "chunkIDs": [
+    null
+  ],
+  "chunks": {
+    "NaN": {
+      "chunkServerId": "client1",
+      "chunkPort": 50053
+    }
+  }
+},{
+  "fileName": "new.txt",
+  "chunkIDs": [
+    null
+  ],
+  "chunks": {
+    "NaN": {
+      "chunkServerId": "client1",
+      "chunkPort": 50053
+    }
+  }
+},{
+  "fileName": "new.txt",
+  "chunkIDs": [
+    null
+  ],
+  "chunks": {
+    "NaN": {
+      "chunkServerId": "client1",
+      "chunkPort": 50053
+    }
+  }
+},{
+  "fileName": "new.txt",
+  "chunkIDs": [
+    null
+  ],
+  "chunks": {
+    "NaN": {
+      "chunkServerId": "client1",
+      "chunkPort": 50052
+    }
+  }
+},{
+  "fileName": "new.txt",
+  "chunkIDs": [],
+  "chunks": {}
+},{
+  "fileName": "new.txt",
+  "chunkIDs": [],
+  "chunks": {}
+},{
+  "fileName": "new.txt",
+  "chunkIDs": [
+    null
+  ],
+  "chunks": {
+    "NaN": {
+      "chunkServerId": "client1",
+      "chunkPort": 50052
+    }
+  }
+},{
+  "fileName": "new.txt",
+  "chunkIDs": [
+    null
+  ],
+  "chunks": {
+    "NaN": {
+      "chunkServerId": "client1",
+      "chunkPort": 50052
+    }
+  }
+},{
+  "fileName": "new.txt",
+  "chunkIDs": [
+    null
+  ],
+  "chunks": {
+    "NaN": {
+      "chunkServerId": "client1",
+      "chunkPort": 50052
+    }
+  }
+},{
+  "fileName": "new.txt",
+  "chunkIDs": [
+    null
+  ],
+  "chunks": {
+    "NaN": {
+      "chunkServerId": "client1",
+      "chunkPort": 50052
+    }
+  }
+},{
+  "fileName": "new.txt",
+  "chunkIDs": [
+    null
+  ],
+  "chunks": {
+    "NaN": {
+      "chunkServerId": "client1",
+      "chunkPort": 50052
+    }
+  }
+}]
