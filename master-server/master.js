@@ -5,7 +5,10 @@ const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+<<<<<<< Updated upstream
 const cors = require("cors");
+=======
+>>>>>>> Stashed changes
 
 const packageDefinition = protoLoader.loadSync("../proto.proto", {});
 const grpcObject = grpc.loadPackageDefinition(packageDefinition);
@@ -244,12 +247,19 @@ app.post("/upload", upload.single("file"), (req, res) => {
 
   saveFile(fileName, fileBuffer)
     .then(() => {
+<<<<<<< Updated upstream
       console.log("File uploaded!");
       res.status(200).send("File uploaded successfully");
     })
     .catch((err) => {
       console.log(err);
       res.status(500).send("Error processing file: " + err.message);
+=======
+      res.status(200).text("File uploaded successfully");
+    })
+    .catch((err) => {
+      res.status(500).text("Error processing file: " + err.message);
+>>>>>>> Stashed changes
     });
 });
 
