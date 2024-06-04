@@ -103,7 +103,7 @@ function createFileChunks(fileData, n) {
 
 function saveFile(fileName, fileBuffer) {
   
-  const metaData = {
+  const masterMetaData = {
     fileName,
     chunkIDs:[],
     chunks:{}
@@ -123,15 +123,18 @@ function saveFile(fileName, fileBuffer) {
       console.log("chunks of the file: \n");
 
       const chunkPromises = Object.keys(chunkServers).map(chunkServerId => {
+
         const chunkId = chunkServerId - 1;
-        metaData.chunkIDs.push(chunkId);
-        metaData.chunks[chunkId] = {chunkServerId, chunkPort: chunkServers[chunkServerId].port};
-        return sendFileToChunkServer(chunkServerId, `chunk ${chunkServerId}`, chunks[chunkServerId - 1]);
+        masterMetaData.chunkIDs.push(chunkId);
+        masterMetaData.chunks[chunkId] = {chunkServerId, chunkPort: chunkServers[chunkServerId].port};
+        
+        return sendFileToChunkServer(chunkServerId, fileName, chunks[chunkServerId - 1]);
+      
       });
 
       await Promise.all(chunkPromises);
 
-      saveMetadata(metaData)
+      saveMetadata(masterMetaData)
       resolve();
     } catch (err) {
       reject(err);
@@ -139,19 +142,19 @@ function saveFile(fileName, fileBuffer) {
   });
 }
 
-function sendFileToChunkServer(chunkServerId, metaData, chunk) {
+function sendFileToChunkServer(chunkServerId, fileName, chunk) {
   return new Promise((resolve, reject) => {
     console.log(`\nid: ${chunkServerId}, port: ${chunkServers[chunkServerId].port}`);
-    console.log("meta data :", metaData);
+    console.log("fileName :", fileName);
     console.log("chunk: ", chunk, "\n");
-
+    
     const slave = new ourFileSystem.FileSystem(
       `localhost:${chunkServers[chunkServerId].port}`,
       grpc.credentials.createInsecure()
     );
-
-    const checkSum = getChecksum(metaData + chunk);
-    slave.storeChunk({ clientId: chunkServerId, metaData, data: chunk, checkSum }, (error, response) => {
+    
+    const checkSum = getChecksum(fileName + chunk);
+    slave.storeChunk({ clientId: chunkServerId, metaData:fileName, data: chunk, checkSum }, (error, response) => {
       if (error) {
         console.error(`Error sending chunk to ${chunkServerId}:`, error);
         return reject(error);
