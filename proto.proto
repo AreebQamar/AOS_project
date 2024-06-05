@@ -6,15 +6,14 @@ service FileSystem {
   rpc Ping(ClientIdentity) returns (PongMessage);
   rpc Register(ClientIdentity) returns (RegisterResponse);
   rpc storeChunk(ChunkData) returns (chunkReceived);
-  rpc requestChunk(chunkRequest) returns(chunkResponse);
-  
+  rpc requestChunk(chunkRequest) returns (chunkResponse);
 }
 
 message ClientIdentity {
   string id = 1;
 }
 
-message RegisterResponse{
+message RegisterResponse {
   string message = 1;
   int32 port = 2;
 }
@@ -23,20 +22,21 @@ message PongMessage {
   string message = 1;
 }
 
-message ChunkData{
+message ChunkData {
   string clientId = 1;
   string metaData = 2;
-  string data = 3;
+  bytes data = 3;
   string checkSum = 4;
 }
 
-message chunkReceived{
+message chunkReceived {
   string message = 1;
 }
 
-message chunkRequest{
+message chunkRequest {
   string fileName = 1;
 }
-message chunkResponse{
-  string data = 1;
+
+message chunkResponse {
+  bytes data = 1;
 }
