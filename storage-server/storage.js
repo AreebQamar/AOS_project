@@ -76,7 +76,7 @@ function storeChunk(call, callback) {
 
 }
 function saveChunkLocally(metaData, clientId, buffer){
-  const fileName = `${metaData}_${clientId}`;
+  const fileName = `${metaData}_${clientId-1}`;
   console.log("fileName: ", fileName);
   
   const filePath = path.join(`${Master_Port}`, fileName);
@@ -93,13 +93,31 @@ function saveChunkLocally(metaData, clientId, buffer){
 
 }
 
+function requestChunk(call, callback){
+  const fileName = call.request.fileName;
+  console.log("\nChunk Request, chunk name: ",fileName);
+
+  const filePath = path.join(`${Master_Port}`, fileName);
+
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      console.error("Error reading file:", err);
+      return callback(err);
+    }
+
+    callback(null, { data });
+  });
+
+}
+
 // Master part (for master server to listen for chunk server registrations and file requests)
 function startMaster(port) {
   console.log("Opening port to listen master's requests.")
   const master = new grpc.Server();
   master.addService(ourFileSystem.FileSystem.service, {
     Ping: ping,
-    storeChunk: storeChunk
+    storeChunk: storeChunk,
+    requestChunk
   });
 
   master.bindAsync(

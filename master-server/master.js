@@ -215,6 +215,58 @@ function saveMetadata(metaData) {
   });
 }
 
+function getAllTheFileChunks(fileName){
+  fs.readFile(metadataFilePath, 'utf8', (err, data) => {
+    
+    if (err) {
+      console.error('Error reading metadata file:', err);
+      return err;
+    }
+
+    try {
+      // Parse the JSON data
+      const masterMetadata = JSON.parse(data);
+      const metaData = masterMetadata.filter((element)=>{
+        if(element.fileName==fileName){
+          return element
+        }
+    });
+    var chunks = [];
+    // console.log(metaData[0].chunks);
+        
+    metaData[0]["chunkIDs"].map((chunkId)=>{
+      //console.log(key, metaData[0].chunks[key]);
+      // console.log("chunkID: ", chunkId);
+      const port = metaData[0]["chunks"][chunkId]["chunkPort"];
+      const slave = new ourFileSystem.FileSystem(
+        `localhost:${port}`,
+        grpc.credentials.createInsecure()
+      );
+
+      const reqFileName = `${fileName}_${chunkId}`;
+
+      console.log("port: ", port, "filename: ", reqFileName);
+      slave.requestChunk({fileName: reqFileName}, (error, response) => {
+        if (error) {
+          console.error(`Error receiving chunk: ${chunkId} form: ${metaData[0].chunks[chunkId].chunkServerId}, Error: `, error);
+          // return reject(error);
+        } else {
+          console.log(response);
+          // resolve(response);
+        }
+      });
+
+
+      });
+
+    }
+    catch (parseError) {
+      console.error('Error parsing metadata file:', parseError);
+      return parseError;
+    }
+  });
+}
+
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -258,6 +310,27 @@ app.get('/filenames', (req, res) => {
     }
   });
 });
+
+app.get('/getfile', upload.single('file'), (req, res) => {
+  
+
+  const fileName = req.query.fileName;
+
+  if(!fileName){
+    return res.status(400).send('Bad request.');
+  }
+
+  getAllTheFileChunks(fileName);
+  // .then(() => {
+  //   res.status(200).send('success');
+  // })
+  // .catch((err) => {
+  //   res.status(500).send('Error processing file: ' + err.message);
+  // });
+  
+  
+});
+
 
 const HTTP_PORT = 4000; // port for client application.
 app.listen(HTTP_PORT, () => {
