@@ -2,19 +2,41 @@ syntax = "proto3";
 
 package distributedFileSystemPackage;
 
-service PingPong {
+service FileSystem {
   rpc Ping(ClientIdentity) returns (PongMessage);
+  rpc Register(ClientIdentity) returns (RegisterResponse);
+  rpc storeChunk(ChunkData) returns (chunkReceived);
+  rpc requestChunk(chunkRequest) returns (chunkResponse);
 }
 
-message FileRequest {
- string filename = 1;
+message ClientIdentity {
+  string id = 1;
 }
 
-message RegisterResponse{
+message RegisterResponse {
   string message = 1;
   int32 port = 2;
 }
 
 message PongMessage {
   string message = 1;
+}
+
+message ChunkData {
+  string clientId = 1;
+  string metaData = 2;
+  bytes data = 3;
+  string checkSum = 4;
+}
+
+message chunkReceived {
+  string message = 1;
+}
+
+message chunkRequest {
+  string fileName = 1;
+}
+
+message chunkResponse {
+  bytes data = 1;
 }

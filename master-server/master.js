@@ -102,11 +102,11 @@ function createFileChunks(fileData, n) {
 }
 
 function saveFile(fileName, fileBuffer) {
-  
-  const metaData = {
+
+  const masterMetaData = {
     fileName,
-    chunkIDs:[],
-    chunks:{}
+    chunkIDs: [],
+    chunks: {}
   };
 
   return new Promise(async (resolve, reject) => {
@@ -114,8 +114,7 @@ function saveFile(fileName, fileBuffer) {
       await checkAndUpdateChunkServerStatus();
 
       const numberOfAvailableServers = Object.keys(chunkServers).length;
-      if(numberOfAvailableServers < 1)
-      {
+      if (numberOfAvailableServers < 1) {
         reject(new Error("No chunk Server Available."));
       }
       const chunks = createFileChunks(fileBuffer, numberOfAvailableServers);
@@ -123,15 +122,18 @@ function saveFile(fileName, fileBuffer) {
       console.log("chunks of the file: \n");
 
       const chunkPromises = Object.keys(chunkServers).map(chunkServerId => {
+
         const chunkId = chunkServerId - 1;
-        metaData.chunkIDs.push(chunkId);
-        metaData.chunks[chunkId] = {chunkServerId, chunkPort: chunkServers[chunkServerId].port};
-        return sendFileToChunkServer(chunkServerId, `chunk ${chunkServerId}`, chunks[chunkServerId - 1]);
+        masterMetaData.chunkIDs.push(chunkId);
+        masterMetaData.chunks[chunkId] = { chunkServerId, chunkPort: chunkServers[chunkServerId].port };
+
+        return sendFileToChunkServer(chunkServerId, fileName, chunks[chunkServerId - 1]);
+
       });
 
       await Promise.all(chunkPromises);
 
-      saveMetadata(metaData)
+      saveMetadata(masterMetaData)
       resolve();
     } catch (err) {
       reject(err);
@@ -139,10 +141,10 @@ function saveFile(fileName, fileBuffer) {
   });
 }
 
-function sendFileToChunkServer(chunkServerId, metaData, chunk) {
+function sendFileToChunkServer(chunkServerId, fileName, chunk) {
   return new Promise((resolve, reject) => {
     console.log(`\nid: ${chunkServerId}, port: ${chunkServers[chunkServerId].port}`);
-    console.log("meta data :", metaData);
+    console.log("fileName :", fileName);
     console.log("chunk: ", chunk, "\n");
 
     const slave = new ourFileSystem.FileSystem(
@@ -150,8 +152,8 @@ function sendFileToChunkServer(chunkServerId, metaData, chunk) {
       grpc.credentials.createInsecure()
     );
 
-    const checkSum = getChecksum(metaData + chunk);
-    slave.storeChunk({ clientId: chunkServerId, metaData, data: chunk, checkSum }, (error, response) => {
+    const checkSum = getChecksum(fileName + chunk);
+    slave.storeChunk({ clientId: chunkServerId, metaData: fileName, data: chunk, checkSum }, (error, response) => {
       if (error) {
         console.error(`Error sending chunk to ${chunkServerId}:`, error);
         return reject(error);
@@ -167,13 +169,13 @@ function saveMetadata(metaData) {
   const metadataFilePath = path.join(__dirname, 'metadata.json');
 
   // console.log("\n\n meta data: ",metaData,"\n\n");
-  
+
   fs.open(metadataFilePath, 'a+', (err, fd) => {
     if (err) {
       console.error('Error opening metadata file:', err);
       return;
     }
-    
+
     fs.readFile(fd, 'utf8', (err, data) => {
       if (err) {
         console.error('Error reading metadata file:', err);
@@ -211,6 +213,53 @@ function saveMetadata(metaData) {
     });
   });
 }
+
+function getAllTheFileChunks(fileName) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Read metadata file
+      const data = await fs.promises.readFile(metadataFilePath, 'utf8');
+      const masterMetadata = JSON.parse(data);
+
+      // Filter metadata for specific file
+      const metaData = masterMetadata.find((element) => element.fileName === fileName);
+      if (!metaData) {
+        throw new Error(`File "${fileName}" not found in metadata.`);
+      }
+
+      const chunkPromises = metaData.chunkIDs.map((chunkId) => {
+        return new Promise((chunkResolve, chunkReject) => {
+          const port = metaData.chunks[chunkId].chunkPort;
+          const slave = new ourFileSystem.FileSystem(
+            `localhost:${port}`,
+            grpc.credentials.createInsecure()
+          );
+          const reqFileName = `${fileName}_${chunkId}`;
+
+          console.log("port:", port, "filename:", reqFileName);
+
+          slave.requestChunk({ fileName: reqFileName }, (error, response) => {
+            if (error) {
+              console.error(`Error receiving chunk: ${chunkId} from: ${metaData.chunks[chunkId].chunkServerId}, Error:`, error);
+              chunkReject(error);
+            } else {
+              chunkResolve(response.data);
+            }
+          });
+        });
+      });
+
+      const chunks = await Promise.all(chunkPromises);
+      const combinedBuffer = Buffer.concat(chunks);
+      resolve(combinedBuffer);
+
+    } catch (err) {
+      console.error('Error processing file:', err);
+      reject(err);
+    }
+  });
+}
+
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -256,6 +305,22 @@ app.get('/filenames', (req, res) => {
   });
 });
 
+app.get('/getfile', async (req, res) => {
+  const fileName = req.query.fileName;
+
+  if (!fileName) {
+    return res.status(400).send('Bad request. No file name provided.');
+  }
+
+  try {
+    const combinedBuffer = await getAllTheFileChunks(fileName);
+    res.status(200).send(combinedBuffer);  // Send the combined buffer
+  } catch (err) {
+    res.status(500).send('Error processing file: ' + err.message);
+  }
+});
+
+
 const HTTP_PORT = 4000; // port for client application.
 app.listen(HTTP_PORT, () => {
   console.log(`Express server running on port ${HTTP_PORT}`);
@@ -266,19 +331,19 @@ startMaster();
 
 
 // Combine the parts back together
-        // const combinedData = Buffer.concat([part1, part2, part3]);
+// const combinedData = Buffer.concat([part1, part2, part3]);
 
-        // // Log the combined data
-        // console.log('\nCombined Data:');
-        // console.log(combinedData);
+// // Log the combined data
+// console.log('\nCombined Data:');
+// console.log(combinedData);
 
-        // // Optionally, you can also write the combined data back to a file to verify it
-        // fs.writeFile(path.join(__dirname, 'combined_example.png'), combinedData, (err) => {
-        //   if (err) {
-        //     console.error(`Error writing combined file: ${err}`);
-        //     reject(err);
-        //   } else {
-        //     console.log('Combined data written to combined_example.txt');
-        //     resolve();
-        //   }
-        // });
+// // Optionally, you can also write the combined data back to a file to verify it
+// fs.writeFile(path.join(__dirname, 'combined_example.png'), combinedData, (err) => {
+//   if (err) {
+//     console.error(`Error writing combined file: ${err}`);
+//     reject(err);
+//   } else {
+//     console.log('Combined data written to combined_example.txt');
+//     resolve();
+//   }
+// });
