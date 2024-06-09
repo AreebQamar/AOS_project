@@ -1,3 +1,6 @@
 node_modules
 metadata.json
-500*
+*500*
+*.txt*
+*.png*
+*.py*
