@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 
 const cors = require("cors");
+const ping = require("./ping.js");
 
 
 const saveFileModule = require("./fileDistribution");
@@ -69,7 +70,7 @@ function getAllTheFileChunks(fileName) {
 
       const chunkPromises = metaData.chunkIDs.map((chunkId) => {
         return new Promise((chunkResolve, chunkReject) => {
-          const port = metaData.chunks[chunkId].chunkPort;
+          const port = metaData.chunks[chunkId][Number(chunkId)].chunkPort;
           const slave = new ourFileSystem.FileSystem(
             `localhost:${port}`,
             grpc.credentials.createInsecure()
@@ -99,6 +100,87 @@ function getAllTheFileChunks(fileName) {
     }
   });
 }
+
+
+// async function getAllTheFileChunks(fileName) {
+//   // Assume the chunk server statuses are updated correctly
+//   await ping.checkAndUpdateChunkServerStatus(ourFileSystem, chunkServers);
+
+//   return new Promise(async (resolve, reject) => {
+//     try {
+//       // Read metadata file
+//       const data = await fs.promises.readFile(metadataFilePath, 'utf8');
+//       const masterMetadata = JSON.parse(data);
+//       console.log("Master Metadata:", masterMetadata);
+
+//       // Filter metadata for specific file
+//       const metaData = masterMetadata.find((element) => element.fileName === fileName);
+//       if (!metaData) {
+//         throw new Error(`File "${fileName}" not found in metadata.`);
+//       }
+//       console.log("Metadata for file:", fileName, metaData);
+
+//       // Create chunk requests based on metadata and chunk server statuses
+//       const chunkRequests = {};
+//       for (const chunkId of metaData.chunkIDs) {
+//         for (const chunkServer of metaData.chunks[chunkId]) {
+//           if (chunkServers[chunkServer.chunkServerId] && chunkServers[chunkServer.chunkServerId].online) {
+//             if (!chunkRequests[chunkServer.chunkServerId]) {
+//               chunkRequests[chunkServer.chunkServerId] = [];
+//             }
+//             chunkRequests[chunkServer.chunkServerId].push(chunkId);
+//             break; // Move to the next chunkId once an online server is found
+//           }
+//         }
+//       }
+
+//       console.log("Chunk Requests:", chunkRequests);
+
+//       // Request chunks from the appropriate chunk servers
+//       const chunkPromises = Object.entries(chunkRequests).map(([serverId, chunkIds]) => {
+//         return new Promise((chunkResolve, chunkReject) => {
+//           const port = chunkServers[serverId].port;
+//           const slave = new ourFileSystem.FileSystem(
+//             `localhost:${port}`,
+//             grpc.credentials.createInsecure()
+//           );
+
+//           Promise.all(chunkIds.map(chunkId => {
+//             const reqFileName = `${fileName}_${chunkId}`;
+//             return new Promise((resolve, reject) => {
+//               console.log("Requesting chunk:", reqFileName, "from server:", serverId, "port:", port);
+//               slave.requestChunk({ fileName: reqFileName }, (error, response) => {
+//                 if (error) {
+//                   console.error(`Error receiving chunk: ${chunkId} from server: ${serverId}, Error:`, error);
+//                   reject(error);
+//                 } else {
+//                   console.log("Received data for chunk:", chunkId, "from server:", serverId);
+//                   resolve(response.data);
+//                 }
+//               });
+//             });
+//           })).then(chunks => {
+//             chunkResolve(chunks);
+//           }).catch(chunkReject);
+//         });
+//       });
+
+//       const chunks = (await Promise.all(chunkPromises)).flat();
+//       console.log("All chunks received, concatenating...");
+//       const combinedBuffer = Buffer.concat(chunks);
+//       resolve(combinedBuffer);
+
+//     } catch (err) {
+//       console.error('Error processing file:', err);
+//       reject(err);
+//     }
+//   });
+// }
+
+
+
+
+
 
 
 const app = express();
