@@ -73,28 +73,70 @@ function createFileChunks(fileData, n) {
     return chunks;
 }
 
-function getCombinations(chunks, n){
+function getCombinations(chunks){
     const combinations = [];
-    for(let i = 0; i<n; i++){
-        const combo = [];
-        for(j = 0; j<3; j++){
-            
-        }
+    const len = chunks.length;
+
+    for (let i = 0; combinations.length < len; i++) {
+      const combo = {};
+
+      for (let j = 0; j < 3; j++) {
+        combo[(i + j) % len] = chunks[(i + j) % len]
+      }
+
+      combinations.push(combo);
     }
-}
-function sendFileToChunkServer(packageDefinition, chunkServersList, chunkServerId, fileName, chunk) {
+  
+    return combinations;
+  }
+// function sendFileToChunkServer(packageDefinition, chunkServersList, chunkServerId, fileName, chunk) {
+//     return new Promise((resolve, reject) => {
+//       console.log(`\nid: ${chunkServerId}, port: ${chunkServersList[chunkServerId].port}`);
+//       console.log("fileName :", fileName);
+//       console.log("chunk: ", chunk, "\n");
+  
+//       const slave = new packageDefinition.FileSystem(
+//         `localhost:${chunkServersList[chunkServerId].port}`,
+//         grpc.credentials.createInsecure()
+//       );
+  
+//       const checkSum = getChecksum(fileName + chunk);
+//       slave.storeChunk({ clientId: chunkServerId, metaData: fileName, data: chunk, checkSum }, (error, response) => {
+//         if (error) {
+//           console.error(`Error sending chunk to ${chunkServerId}:`, error);
+//           return reject(error);
+//         } else {
+//           console.log(response);
+//           resolve(response);
+//         }
+//       });
+//     });
+// }
+
+function sendFileToChunkServer(packageDefinition, chunkServersList, chunkServerId, fileName, combination) {
     return new Promise((resolve, reject) => {
       console.log(`\nid: ${chunkServerId}, port: ${chunkServersList[chunkServerId].port}`);
       console.log("fileName :", fileName);
-      console.log("chunk: ", chunk, "\n");
+      console.log("combination: ", combination, "\n");
+    //   console.log("combination: ");
+    //   combination.map((key, value)=>{
+    //     console.log("key:", key, "value: ", value)
+    //   })
   
       const slave = new packageDefinition.FileSystem(
         `localhost:${chunkServersList[chunkServerId].port}`,
         grpc.credentials.createInsecure()
       );
   
-      const checkSum = getChecksum(fileName + chunk);
-      slave.storeChunk({ clientId: chunkServerId, metaData: fileName, data: chunk, checkSum }, (error, response) => {
+      const combinationBuffer = Buffer.from(JSON.stringify(combination)); // Serialize the combination to a Buffer
+      const checkSum = getChecksum(fileName + combinationBuffer.toString('utf8'));
+      
+      slave.storeChunk({
+        clientId: chunkServerId,
+        metaData: fileName,
+        data: combinationBuffer, // Send the combination as a Buffer
+        checkSum
+      }, (error, response) => {
         if (error) {
           console.error(`Error sending chunk to ${chunkServerId}:`, error);
           return reject(error);
@@ -104,7 +146,7 @@ function sendFileToChunkServer(packageDefinition, chunkServersList, chunkServerI
         }
       });
     });
-}
+  }
 
 function saveFile(packageDefinition, chunkServersList, fileName, fileBuffer) {
 
@@ -113,7 +155,7 @@ function saveFile(packageDefinition, chunkServersList, fileName, fileBuffer) {
       chunkIDs: [],
       chunks: {}
     };
-  
+    
     return new Promise(async (resolve, reject) => {
       try {
         await ping.checkAndUpdateChunkServerStatus(packageDefinition, chunkServersList);
@@ -122,23 +164,90 @@ function saveFile(packageDefinition, chunkServersList, fileName, fileBuffer) {
         if (numberOfAvailableServers < 1) {
           reject(new Error("No chunk Server Available."));
         }
+       
+       
+        // const chunks = createFileChunks(fileBuffer, numberOfAvailableServers);
+  
+        // console.log(chunks);
+
+        // const combinations = getCombinations(chunks);
+
+        // // const dad = {};
+        // // const chunksInformatiton = []; 
+        // // combinations.map((combo, index)=>{
+        // //     console.log("chunkServerID: ", index);
+        // //     const chunkIDs = Object.keys(combo);
+
+        // //     chunkIDs.map((chunkId)=>{
+        // //         dad[chunkId] = 
+        // //     })
+        // //     console.log("chunks:", );
+        // // })
+
+        // // console.log("chunks of the file: \n");
+  
+
+        // const chunkPromises = Object.keys(chunkServersList).forEach((chunkServerId, index) => {
+        //     const combination = combinations[index % combinations.length]; // Ensure wrapping if more servers than combinations
+        //     masterMetaData.chunkIDs.push(index);
+          
+        //     masterMetaData.chunks[index] = combination.map((chunk, idx) => ({
+        //       chunkServerId: chunkServerId,
+        //       chunkPort: chunkServersList[chunkServerId].port,
+        //     }));
+          
+        //     // Send each combination of chunks to the corresponding server
+        //     sendFileToChunkServer(packageDefinition, chunkServersList, chunkServerId, fileName, combination);
+        //   });
+          
+
+
+        // // const chunkPromises = Object.keys(chunkServersList).map(chunkServerId => {
+  
+        // //   const chunkId = chunkServerId - 1;
+        // //   masterMetaData.chunkIDs.push(chunkId);
+          
+        // //   masterMetaData.chunks[chunkId] =  { chunkServerId, chunkPort: chunkServersList[chunkServerId].port };
+  
+        // //   return sendFileToChunkServer(packageDefinition, chunkServersList, chunkServerId, fileName, chunks[chunkServerId - 1]);
+  
+        // // });
+  
+        // await Promise.all(chunkPromises);
+  
+        // saveMetadata(masterMetaData)
+
+
+
+
         const chunks = createFileChunks(fileBuffer, numberOfAvailableServers);
-  
-        console.log("chunks of the file: \n");
-  
-        const chunkPromises = Object.keys(chunkServersList).map(chunkServerId => {
-  
-          const chunkId = chunkServerId - 1;
-          masterMetaData.chunkIDs.push(chunkId);
-          masterMetaData.chunks[chunkId] = { chunkServerId, chunkPort: chunkServersList[chunkServerId].port };
-  
-          return sendFileToChunkServer(packageDefinition, chunkServersList, chunkServerId, fileName, chunks[chunkServerId - 1]);
-  
+        const combinations = getCombinations(chunks);
+        // console.log(combinations);
+        // console.log("chunkServers:", chunkServersList);
+
+        combinations.forEach((combination, index) => {
+            masterMetaData.chunkIDs.push(index);
+            const keys = Object.keys(combination);
+            // console.log("keys", keys);
+            masterMetaData.chunks[index] = keys.map((key) => {
+                const serverId = String(Number(key) + 1);
+                return {
+                    chunkServerId: serverId,
+                    chunkPort: chunkServersList[serverId].port
+                };
+            });
         });
-  
+
+        const chunkPromises = Object.keys(chunkServersList).map(chunkServerId => {
+            return sendFileToChunkServer(packageDefinition, chunkServersList, chunkServerId, fileName, combinations[Number(chunkServerId-1)]);
+        });
+
         await Promise.all(chunkPromises);
-  
-        saveMetadata(masterMetaData)
+        saveMetadata(masterMetaData);
+
+
+
+
         resolve();
       } catch (err) {
         reject(err);
