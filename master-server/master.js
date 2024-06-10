@@ -55,7 +55,9 @@ function startMaster() {
 
 
 
-function getAllTheFileChunks(fileName) {
+async function getAllTheFileChunks(fileName) {
+  await ping.checkAndUpdateChunkServerStatus(ourFileSystem, chunkServers);
+
   return new Promise(async (resolve, reject) => {
     try {
       // Read metadata file
@@ -70,7 +72,21 @@ function getAllTheFileChunks(fileName) {
 
       const chunkPromises = metaData.chunkIDs.map((chunkId) => {
         return new Promise((chunkResolve, chunkReject) => {
-          const port = metaData.chunks[chunkId][Number(chunkId)].chunkPort;
+          let port;
+          if(chunkServers[`${Number(chunkId) +1}`])
+          {
+            port = metaData.chunks[chunkId][Number(chunkId)].chunkPort;
+
+          }
+          else{
+            for(let i= 0; i<3; i++){
+              if(chunkServers[i+1])
+              {
+                port = metaData.chunks[chunkId][i].chunkPort;
+    
+              }
+            }
+          }
           const slave = new ourFileSystem.FileSystem(
             `localhost:${port}`,
             grpc.credentials.createInsecure()
