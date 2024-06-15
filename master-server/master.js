@@ -11,10 +11,10 @@ const fs = require('fs');
 const path = require('path');
 
 const cors = require("cors");
-const ping = require("./ping.js");
 
-
+const fieRetriver = require("./fileRetrival.js");
 const saveFileModule = require("./fileDistribution");
+
 
 const MASTER_PORT = 50051;
 const SLAVE_PORT_BASE = 50052;
@@ -52,150 +52,6 @@ function startMaster() {
     }
   );
 }
-
-
-
-async function getAllTheFileChunks(fileName) {
-  await ping.checkAndUpdateChunkServerStatus(ourFileSystem, chunkServers);
-
-  return new Promise(async (resolve, reject) => {
-    try {
-      // Read metadata file
-      const data = await fs.promises.readFile(metadataFilePath, 'utf8');
-      const masterMetadata = JSON.parse(data);
-
-      // Filter metadata for specific file
-      const metaData = masterMetadata.find((element) => element.fileName === fileName);
-      if (!metaData) {
-        throw new Error(`File "${fileName}" not found in metadata.`);
-      }
-
-      const chunkPromises = metaData.chunkIDs.map((chunkId) => {
-        return new Promise((chunkResolve, chunkReject) => {
-          let port;
-          if(chunkServers[`${Number(chunkId) +1}`])
-          {
-            port = metaData.chunks[chunkId][Number(chunkId)].chunkPort;
-
-          }
-          else{
-            for(let i= 0; i<3; i++){
-              if(chunkServers[i+1])
-              {
-                port = metaData.chunks[chunkId][i].chunkPort;
-    
-              }
-            }
-          }
-          const slave = new ourFileSystem.FileSystem(
-            `localhost:${port}`,
-            grpc.credentials.createInsecure()
-          );
-          const reqFileName = `${fileName}_${chunkId}`;
-
-          console.log("port:", port, "filename:", reqFileName);
-
-          slave.requestChunk({ fileName: reqFileName }, (error, response) => {
-            if (error) {
-              console.error(`Error receiving chunk: ${chunkId} from: ${metaData.chunks[chunkId].chunkServerId}, Error:`, error);
-              chunkReject(error);
-            } else {
-              chunkResolve(response.data);
-            }
-          });
-        });
-      });
-
-      const chunks = await Promise.all(chunkPromises);
-      const combinedBuffer = Buffer.concat(chunks);
-      resolve(combinedBuffer);
-
-    } catch (err) {
-      console.error('Error processing file:', err);
-      reject(err);
-    }
-  });
-}
-
-
-// async function getAllTheFileChunks(fileName) {
-//   // Assume the chunk server statuses are updated correctly
-//   await ping.checkAndUpdateChunkServerStatus(ourFileSystem, chunkServers);
-
-//   return new Promise(async (resolve, reject) => {
-//     try {
-//       // Read metadata file
-//       const data = await fs.promises.readFile(metadataFilePath, 'utf8');
-//       const masterMetadata = JSON.parse(data);
-//       console.log("Master Metadata:", masterMetadata);
-
-//       // Filter metadata for specific file
-//       const metaData = masterMetadata.find((element) => element.fileName === fileName);
-//       if (!metaData) {
-//         throw new Error(`File "${fileName}" not found in metadata.`);
-//       }
-//       console.log("Metadata for file:", fileName, metaData);
-
-//       // Create chunk requests based on metadata and chunk server statuses
-//       const chunkRequests = {};
-//       for (const chunkId of metaData.chunkIDs) {
-//         for (const chunkServer of metaData.chunks[chunkId]) {
-//           if (chunkServers[chunkServer.chunkServerId] && chunkServers[chunkServer.chunkServerId].online) {
-//             if (!chunkRequests[chunkServer.chunkServerId]) {
-//               chunkRequests[chunkServer.chunkServerId] = [];
-//             }
-//             chunkRequests[chunkServer.chunkServerId].push(chunkId);
-//             break; // Move to the next chunkId once an online server is found
-//           }
-//         }
-//       }
-
-//       console.log("Chunk Requests:", chunkRequests);
-
-//       // Request chunks from the appropriate chunk servers
-//       const chunkPromises = Object.entries(chunkRequests).map(([serverId, chunkIds]) => {
-//         return new Promise((chunkResolve, chunkReject) => {
-//           const port = chunkServers[serverId].port;
-//           const slave = new ourFileSystem.FileSystem(
-//             `localhost:${port}`,
-//             grpc.credentials.createInsecure()
-//           );
-
-//           Promise.all(chunkIds.map(chunkId => {
-//             const reqFileName = `${fileName}_${chunkId}`;
-//             return new Promise((resolve, reject) => {
-//               console.log("Requesting chunk:", reqFileName, "from server:", serverId, "port:", port);
-//               slave.requestChunk({ fileName: reqFileName }, (error, response) => {
-//                 if (error) {
-//                   console.error(`Error receiving chunk: ${chunkId} from server: ${serverId}, Error:`, error);
-//                   reject(error);
-//                 } else {
-//                   console.log("Received data for chunk:", chunkId, "from server:", serverId);
-//                   resolve(response.data);
-//                 }
-//               });
-//             });
-//           })).then(chunks => {
-//             chunkResolve(chunks);
-//           }).catch(chunkReject);
-//         });
-//       });
-
-//       const chunks = (await Promise.all(chunkPromises)).flat();
-//       console.log("All chunks received, concatenating...");
-//       const combinedBuffer = Buffer.concat(chunks);
-//       resolve(combinedBuffer);
-
-//     } catch (err) {
-//       console.error('Error processing file:', err);
-//       reject(err);
-//     }
-//   });
-// }
-
-
-
-
 
 
 
@@ -253,7 +109,7 @@ app.get('/getfile', async (req, res) => {
   }
 
   try {
-    const combinedBuffer = await getAllTheFileChunks(fileName);
+    const combinedBuffer = await fieRetriver.getAllTheFileChunks(fileName, metadataFilePath, ourFileSystem, chunkServers);
     res.status(200).send(combinedBuffer);  // Send the combined buffer
   } catch (err) {
     res.status(500).send('Error processing file: ' + err.message);
@@ -267,23 +123,3 @@ app.listen(HTTP_PORT, () => {
 });
 
 startMaster();
-
-
-
-// Combine the parts back together
-// const combinedData = Buffer.concat([part1, part2, part3]);
-
-// // Log the combined data
-// console.log('\nCombined Data:');
-// console.log(combinedData);
-
-// // Optionally, you can also write the combined data back to a file to verify it
-// fs.writeFile(path.join(__dirname, 'combined_example.png'), combinedData, (err) => {
-//   if (err) {
-//     console.error(`Error writing combined file: ${err}`);
-//     reject(err);
-//   } else {
-//     console.log('Combined data written to combined_example.txt');
-//     resolve();
-//   }
-// });
