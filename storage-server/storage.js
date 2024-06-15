@@ -10,109 +10,19 @@ const ourFileSystem = grpcObject.distributedFileSystemPackage;
 
 const crypto = require('crypto');
 
+const ping = require("./ping");
+const savechunk = require("./saveChunk");
+const sendChunk = require("./sendChunk");
 
 const SLAVE_PORT = 50051;
 var Master_Port;
 
-function getChecksum(inputString) {
-  const hash = crypto.createHash('sha256');
-  hash.update(inputString);
-  return hash.digest('hex');
-}
-
-function ping(call, callback) {
-  const clientId = call.request.id;
-  console.log(`Ping received from Master: ${clientId}`);
-  callback(null, { message: `Pong from server to client ${clientId}` });
-}
-
-// function storeChunk(call, callback) {
-//   const { clientId, metaData, data, checkSum } = call.request;
-//   console.log("Chunk received");
-
-//   if (checkSum == getChecksum(metaData + data.toString())) {
-//     saveChunkLocally(metaData, clientId, data);
-//     callback(null, { message: "saved!" });
-//   } else {
-//     console.log("check Sum does not match!!");
-//     return callback(new Error("check Sum does not match!!"));
-//   }
-// }
-
-// function saveChunkLocally(metaData, clientId, buffer) {
-//   const fileName = `${metaData}_${clientId-1}`;
-//   const filePath = path.join(`${Master_Port}`, fileName);
-  
-//   fs.writeFile(filePath, buffer, (err) => {
-//     if (err) {
-//       console.error("Error writing file:", err);
-//     } else {
-//       console.log("File saved successfully!");
-//     }
-//   });
-// }
-
-function storeChunk(call, callback) {
-  const { clientId, metaData, data, checkSum } = call.request;
-  console.log("Chunk combination received");
-
-  const receivedDataString = data.toString('utf8'); // Convert the Buffer to a string
-  let receivedData;
-  try {
-    receivedData = JSON.parse(receivedDataString); // Parse the string to JSON
-  } catch (e) {
-    console.error("Error parsing JSON data:", e);
-    return callback(new Error("Invalid JSON data"));
-  }
-
-  for (const [chunkId, chunkData] of Object.entries(receivedData)) {
-      saveChunkLocally(metaData, chunkId, Buffer.from(chunkData));
-
-    // if (checkSum == getChecksum(metaData + chunkData)) {
-    //   saveChunkLocally(metaData, chunkId, Buffer.from(chunkData));
-    // } else {
-    //   console.log("Checksum does not match for chunk", chunkId);
-    //   return callback(new Error(`Checksum does not match for chunk ${chunkId}`));
-    // }
-  }
-  
-  callback(null, { message: "All chunks saved!" });
-}
-
-function saveChunkLocally(metaData, chunkId, buffer) {
-  const fileName = `${metaData}_${chunkId}`;
-  const filePath = path.join(`${Master_Port}`, fileName);
-  
-  fs.writeFile(filePath, buffer, (err) => {
-    if (err) {
-      console.error("Error writing file:", err);
-    } else {
-      console.log(`File ${fileName} saved successfully!`);
-    }
-  });
-}
-
-
-function requestChunk(call, callback) {
-  const fileName = call.request.fileName;
-  const filePath = path.join(`${Master_Port}`, fileName);
-
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      console.error("Error reading file:", err);
-      return callback(err);
-    }
-
-    callback(null, { data });
-  });
-}
-
 function startMaster(port) {
   const master = new grpc.Server();
   master.addService(ourFileSystem.FileSystem.service, {
-    Ping: ping,
-    storeChunk: storeChunk,
-    requestChunk: requestChunk
+    Ping: ping.ping,
+    storeChunk: savechunk.storeChunk,
+    requestChunk: sendChunk.requestChunk
   });
 
   master.bindAsync(
@@ -127,6 +37,7 @@ function startMaster(port) {
           fs.mkdirSync(dir);
         }
         Master_Port = port;
+        exports.Master_Port = Master_Port; //to be use by other moduals.
         console.log(`Now listening for master requests at: ${port}\n`);
       }
     }
