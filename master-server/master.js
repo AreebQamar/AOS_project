@@ -12,7 +12,7 @@ const path = require('path');
 
 const cors = require("cors");
 
-const fieRetriver = require("./fileRetrival.js");
+const fieRetriever = require("./fileRetrieval.js");
 const saveFileModule = require("./fileDistribution");
 
 
@@ -109,7 +109,7 @@ app.get('/getfile', async (req, res) => {
   }
 
   try {
-    const combinedBuffer = await fieRetriver.getAllTheFileChunks(fileName, metadataFilePath, ourFileSystem, chunkServers);
+    const combinedBuffer = await fieRetriever.getAllTheFileChunks(fileName, metadataFilePath, ourFileSystem, chunkServers);
     res.status(200).send(combinedBuffer);  // Send the combined buffer
   } catch (err) {
     res.status(500).send('Error processing file: ' + err.message);
