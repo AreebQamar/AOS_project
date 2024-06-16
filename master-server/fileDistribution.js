@@ -165,61 +165,6 @@ function saveFile(packageDefinition, chunkServersList, fileName, fileBuffer) {
           reject(new Error("No chunk Server Available."));
         }
        
-       
-        // const chunks = createFileChunks(fileBuffer, numberOfAvailableServers);
-  
-        // console.log(chunks);
-
-        // const combinations = getCombinations(chunks);
-
-        // // const dad = {};
-        // // const chunksInformatiton = []; 
-        // // combinations.map((combo, index)=>{
-        // //     console.log("chunkServerID: ", index);
-        // //     const chunkIDs = Object.keys(combo);
-
-        // //     chunkIDs.map((chunkId)=>{
-        // //         dad[chunkId] = 
-        // //     })
-        // //     console.log("chunks:", );
-        // // })
-
-        // // console.log("chunks of the file: \n");
-  
-
-        // const chunkPromises = Object.keys(chunkServersList).forEach((chunkServerId, index) => {
-        //     const combination = combinations[index % combinations.length]; // Ensure wrapping if more servers than combinations
-        //     masterMetaData.chunkIDs.push(index);
-          
-        //     masterMetaData.chunks[index] = combination.map((chunk, idx) => ({
-        //       chunkServerId: chunkServerId,
-        //       chunkPort: chunkServersList[chunkServerId].port,
-        //     }));
-          
-        //     // Send each combination of chunks to the corresponding server
-        //     sendFileToChunkServer(packageDefinition, chunkServersList, chunkServerId, fileName, combination);
-        //   });
-          
-
-
-        // // const chunkPromises = Object.keys(chunkServersList).map(chunkServerId => {
-  
-        // //   const chunkId = chunkServerId - 1;
-        // //   masterMetaData.chunkIDs.push(chunkId);
-          
-        // //   masterMetaData.chunks[chunkId] =  { chunkServerId, chunkPort: chunkServersList[chunkServerId].port };
-  
-        // //   return sendFileToChunkServer(packageDefinition, chunkServersList, chunkServerId, fileName, chunks[chunkServerId - 1]);
-  
-        // // });
-  
-        // await Promise.all(chunkPromises);
-  
-        // saveMetadata(masterMetaData)
-
-
-
-
         const chunks = createFileChunks(fileBuffer, numberOfAvailableServers);
         const combinations = getCombinations(chunks);
         // console.log(combinations);
@@ -244,9 +189,6 @@ function saveFile(packageDefinition, chunkServersList, fileName, fileBuffer) {
 
         await Promise.all(chunkPromises);
         saveMetadata(masterMetaData);
-
-
-
 
         resolve();
       } catch (err) {

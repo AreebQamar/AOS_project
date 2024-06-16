@@ -20,7 +20,7 @@ function pingChunkServer(packageDefinition, chunkServersList, chunkServerId) {
         slave.Ping({ id: chunkServersList[chunkServerId].id }, (error, response) => {
         if (error) {
             console.error("Error pinging chunk server, marking it offline:", error);
-            markChunkServerOffline(chunkServerId);
+            markChunkServerOffline(chunkServersList, chunkServerId);
             resolve(null); // resolve with null to indicate failure, but don't reject
         } else {
             console.log("response: ", response.message, "\n");
@@ -32,12 +32,13 @@ function pingChunkServer(packageDefinition, chunkServersList, chunkServerId) {
 
 async function checkAndUpdateChunkServerStatus(packageDefinition, chunkServersList) {
     const pingPromises = [];
-  
+   
     for (const chunkServerId in chunkServersList) {
       pingPromises.push(pingChunkServer(packageDefinition, chunkServersList, chunkServerId));
     }
   
     await Promise.all(pingPromises);
+    
     console.log('All chunk servers have been pinged.');
 }
 

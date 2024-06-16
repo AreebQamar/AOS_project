@@ -28,7 +28,7 @@ const metadataFilePath = path.join(__dirname, 'metadata.json');
 function register(call, callback) {
   const clientId = call.request.id;
   console.log(`Register request from chunk server: ${clientId}`);
-  const chunkServerPort = SLAVE_PORT_BASE + chunkServerCounter++;
+  const chunkServerPort = Number(SLAVE_PORT_BASE) + Number(clientId) - 1;
   chunkServers[clientId] = { id: clientId, port: chunkServerPort };
   console.log(`Chunk Server ${clientId} registered.\n`);
   callback(null, { message: `Chunk server ${clientId} registered`, port: chunkServerPort });
@@ -114,6 +114,20 @@ app.get('/getfile', async (req, res) => {
   } catch (err) {
     res.status(500).send('Error processing file: ' + err.message);
   }
+});
+
+
+const ping = require("./ping.js");
+
+app.get('/ping', async (req, res) => {
+
+  await ping.checkAndUpdateChunkServerStatus(ourFileSystem, chunkServers);
+  
+  
+  res.status(200).send(chunkServers); 
+ 
+   
+
 });
 
 

@@ -9,7 +9,7 @@ const fs = require('fs');
 
 async function getAllTheFileChunks(fileName, metadataFilePath, packageDefinition, chunkServersList) {
     await ping.checkAndUpdateChunkServerStatus(packageDefinition, chunkServersList);
-  
+
     return new Promise(async (resolve, reject) => {
       try {
         // Read metadata file

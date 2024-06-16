@@ -1,12 +1,10 @@
 const grpc = require("@grpc/grpc-js");
 const protoLoader = require("@grpc/proto-loader");
-
-const fs = require('fs');
-const path = require('path');
-
 const packageDefinition = protoLoader.loadSync("../proto.proto", {});
 const grpcObject = grpc.loadPackageDefinition(packageDefinition);
 const ourFileSystem = grpcObject.distributedFileSystemPackage;
+
+const fs = require('fs');
 
 const crypto = require('crypto');
 
