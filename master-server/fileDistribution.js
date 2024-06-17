@@ -1,10 +1,11 @@
-const ping = require("./ping.js");
 const grpc = require("@grpc/grpc-js");
 
 const crypto = require('crypto');
 
 const fs = require('fs');
 const path = require('path');
+
+const ping = require("./ping.js");
 
 function getChecksum(inputString) {
     const hash = crypto.createHash('sha256'); // Create a SHA-256 hash instance
@@ -15,23 +16,23 @@ function getChecksum(inputString) {
 
 function saveMetadata(metaData) {
     const metadataFilePath = path.join(__dirname, 'metadata.json');
-  
+
     // console.log("\n\n meta data: ",metaData,"\n\n");
-  
+
     fs.open(metadataFilePath, 'a+', (err, fd) => {
       if (err) {
         console.error('Error opening metadata file:', err);
         return;
       }
-  
+
       fs.readFile(fd, 'utf8', (err, data) => {
         if (err) {
           console.error('Error reading metadata file:', err);
           return;
         }
-  
+
         let newEntry = JSON.stringify(metaData, null, 2);
-  
+
         if (data.length === 0) {
           // New file, start the JSON array
           newEntry = `[${newEntry}]`;
@@ -49,7 +50,7 @@ function saveMetadata(metaData) {
             return;
           }
         }
-  
+
         fs.writeFile(metadataFilePath, newEntry, 'utf8', (err) => {
           if (err) {
             console.error('Error writing metadata file:', err);
@@ -65,7 +66,7 @@ function saveMetadata(metaData) {
 function createFileChunks(fileData, n) {
     const chunks = [];
     const chunkSize = Math.ceil(fileData.length / n);
-  
+
     for (let i = 0; i < n; i++) {
       const chunk = fileData.slice(i * chunkSize, (i + 1) * chunkSize);
       chunks.push(chunk);
@@ -86,51 +87,30 @@ function getCombinations(chunks){
 
       combinations.push(combo);
     }
-  
+
     return combinations;
   }
-// function sendFileToChunkServer(packageDefinition, chunkServersList, chunkServerId, fileName, chunk) {
-//     return new Promise((resolve, reject) => {
-//       console.log(`\nid: ${chunkServerId}, port: ${chunkServersList[chunkServerId].port}`);
-//       console.log("fileName :", fileName);
-//       console.log("chunk: ", chunk, "\n");
-  
-//       const slave = new packageDefinition.FileSystem(
-//         `localhost:${chunkServersList[chunkServerId].port}`,
-//         grpc.credentials.createInsecure()
-//       );
-  
-//       const checkSum = getChecksum(fileName + chunk);
-//       slave.storeChunk({ clientId: chunkServerId, metaData: fileName, data: chunk, checkSum }, (error, response) => {
-//         if (error) {
-//           console.error(`Error sending chunk to ${chunkServerId}:`, error);
-//           return reject(error);
-//         } else {
-//           console.log(response);
-//           resolve(response);
-//         }
-//       });
-//     });
-// }
 
 function sendFileToChunkServer(packageDefinition, chunkServersList, chunkServerId, fileName, combination) {
     return new Promise((resolve, reject) => {
       console.log(`\nid: ${chunkServerId}, port: ${chunkServersList[chunkServerId].port}`);
       console.log("fileName :", fileName);
       console.log("combination: ", combination, "\n");
-    //   console.log("combination: ");
-    //   combination.map((key, value)=>{
-    //     console.log("key:", key, "value: ", value)
-    //   })
-  
+
+      //testing.
+      // console.log("combination: ");
+      // combination.map((key, value)=>{
+      //   console.log("key:", key, "value: ", value)
+      // })
+
       const slave = new packageDefinition.FileSystem(
         `localhost:${chunkServersList[chunkServerId].port}`,
         grpc.credentials.createInsecure()
       );
-  
+
       const combinationBuffer = Buffer.from(JSON.stringify(combination)); // Serialize the combination to a Buffer
       const checkSum = getChecksum(fileName + combinationBuffer.toString('utf8'));
-      
+
       slave.storeChunk({
         clientId: chunkServerId,
         metaData: fileName,
@@ -148,43 +128,59 @@ function sendFileToChunkServer(packageDefinition, chunkServersList, chunkServerI
     });
   }
 
-function saveFile(packageDefinition, chunkServersList, fileName, fileBuffer) {
+  async function saveFile(packageDefinition, chunkServersList, fileName, fileBuffer) {
+
+    await ping.checkAndUpdateChunkServerStatus(packageDefinition, chunkServersList);
 
     const masterMetaData = {
       fileName,
       chunkIDs: [],
       chunks: {}
     };
-    
+
     return new Promise(async (resolve, reject) => {
       try {
-        await ping.checkAndUpdateChunkServerStatus(packageDefinition, chunkServersList);
-  
+        const chunkPromises = [];
         const numberOfAvailableServers = Object.keys(chunkServersList).length;
+
+        // console.log("servers available: ", numberOfAvailableServers);
+
         if (numberOfAvailableServers < 1) {
           reject(new Error("No chunk Server Available."));
+          return;
         }
-       
+
         const chunks = createFileChunks(fileBuffer, numberOfAvailableServers);
         const combinations = getCombinations(chunks);
-        // console.log(combinations);
-        // console.log("chunkServers:", chunkServersList);
+        console.log(combinations);
+
+        const chunkServerIds = Object.keys(chunkServersList);
 
         combinations.forEach((combination, index) => {
-            masterMetaData.chunkIDs.push(index);
-            const keys = Object.keys(combination);
-            // console.log("keys", keys);
-            masterMetaData.chunks[index] = keys.map((key) => {
-                const serverId = String(Number(key) + 1);
-                return {
-                    chunkServerId: serverId,
-                    chunkPort: chunkServersList[serverId].port
-                };
-            });
-        });
 
-        const chunkPromises = Object.keys(chunkServersList).map(chunkServerId => {
-            return sendFileToChunkServer(packageDefinition, chunkServersList, chunkServerId, fileName, combinations[Number(chunkServerId-1)]);
+          masterMetaData.chunkIDs.push(index);
+
+          //testing.
+          // console.log("chunk server Id: ", chunkServerIds[index]);
+          // console.log("combination: ", combination);
+
+          Object.keys(combination).forEach((key) => {
+            
+            // const serverId = String(Number(key) + 1);
+            if (!masterMetaData.chunks[key]) {
+              masterMetaData.chunks[key] = [];
+            }
+            masterMetaData.chunks[key].push({
+              chunkServerId: chunkServerIds[index],
+              chunkPort: chunkServersList[chunkServerIds[index]].port
+            });
+
+            //testing.
+            // console.log("master mata data: ", masterMetaData);
+            // console.log("chunk Data: ", combination[key]);
+          });
+          
+          chunkPromises.push(sendFileToChunkServer(packageDefinition, chunkServersList, chunkServerIds[index], fileName, combination));
         });
 
         await Promise.all(chunkPromises);

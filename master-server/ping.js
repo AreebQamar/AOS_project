@@ -1,8 +1,6 @@
 const grpc = require("@grpc/grpc-js");
 
 
-
-
 function markChunkServerOffline(chunkServersList, chunkServerId) {
     if (chunkServersList[chunkServerId]) {
       delete chunkServersList[chunkServerId];
@@ -21,6 +19,7 @@ function pingChunkServer(packageDefinition, chunkServersList, chunkServerId) {
         if (error) {
             console.error("Error pinging chunk server, marking it offline:", error);
             markChunkServerOffline(chunkServersList, chunkServerId);
+
             resolve(null); // resolve with null to indicate failure, but don't reject
         } else {
             console.log("response: ", response.message, "\n");
