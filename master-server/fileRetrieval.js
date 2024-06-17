@@ -10,6 +10,8 @@ const fs = require('fs');
 async function getAllTheFileChunks(fileName, metadataFilePath, packageDefinition, chunkServersList) {
     await ping.checkAndUpdateChunkServerStatus(packageDefinition, chunkServersList);
 
+    console.log("FR: ", chunkServersList);
+
     return new Promise(async (resolve, reject) => {
       try {
         // Read metadata file
@@ -17,28 +19,44 @@ async function getAllTheFileChunks(fileName, metadataFilePath, packageDefinition
         const masterMetadata = JSON.parse(data);
   
         // Filter metadata for specific file
-        const metaData = masterMetadata.find((element) => element.fileName === fileName);
-        if (!metaData) {
-          throw new Error(`File "${fileName}" not found in metadata.`);
+        const fileMetaData = masterMetadata.find((element) => element.fileName === fileName);
+
+        if (!fileMetaData) {
+
+          reject(new Error(`File "${fileName}" not found in metadata.`));
+          return;
+
         }
   
-        const chunkPromises = metaData.chunkIDs.map((chunkId) => {
+        const chunkServerAlreadyUsed = [];
+        const chunkPromises = fileMetaData.chunkIDs.map((chunkId) => {
           return new Promise((chunkResolve, chunkReject) => {
             let port;
-            if(chunkServersList[`${Number(chunkId) +1}`])
-            {
-              port = metaData.chunks[chunkId][Number(chunkId)].chunkPort;
-  
-            }
-            else{
-              for(let i= 0; i<3; i++){
-                if(chunkServersList[i+1])
-                {
-                  port = metaData.chunks[chunkId][i].chunkPort;
-      
-                }
+            const chunkLocations = fileMetaData.chunks[chunkId];
+
+            //testing.
+            // console.log("\n\nchunk ID: ", chunkId);
+            // console.log("chunk locations: ", chunkLocations);
+
+            for (let i = 0; i< 3; i++){//3 replicas for each chunk.
+              //testing.
+              // console.log("chunk server Id: ", chunkLocations[i].chunkServerId);
+              // console.log("chunk server port: ", chunkLocations[i].chunkPort);
+
+              if(!chunkServerAlreadyUsed.includes(chunkLocations[i].chunkServerId) && chunkServersList[chunkLocations[i].chunkServerId]){
+                chunkServerAlreadyUsed.push(chunkLocations[i].chunkServerId);
+                port = chunkLocations[i].chunkPort;
+                break;
               }
             }
+
+            // console.log("loop terminated, port: ", port);
+
+            if(!port){
+              //console.log("No free server found!. requesting first location.")
+              port = chunkLocations[0].chunkPort;
+            }
+
             const slave = new packageDefinition.FileSystem(
               `localhost:${port}`,
               grpc.credentials.createInsecure()
@@ -49,7 +67,7 @@ async function getAllTheFileChunks(fileName, metadataFilePath, packageDefinition
   
             slave.requestChunk({ fileName: reqFileName }, (error, response) => {
               if (error) {
-                console.error(`Error receiving chunk: ${chunkId} from: ${metaData.chunks[chunkId].chunkServerId}, Error:`, error);
+                console.error(`Error receiving chunk: ${chunkId} from: ${fileMetaData.chunks[chunkId].chunkServerId}, Error:`, error);
                 chunkReject(error);
               } else {
                 chunkResolve(response.data);
