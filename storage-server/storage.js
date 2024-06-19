@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const ping = require("./ping");
 const savechunk = require("./saveChunk");
 const sendChunk = require("./sendChunk");
+const deleteChunk = require("./deleteChunk");
 
 const SLAVE_PORT = 50051;
 var Master_Port;
@@ -20,7 +21,8 @@ function startMaster(port) {
   master.addService(ourFileSystem.FileSystem.service, {
     Ping: ping.ping,
     storeChunk: savechunk.storeChunk,
-    requestChunk: sendChunk.requestChunk
+    requestChunk: sendChunk.requestChunk,
+    deleteChunk: deleteChunk.deleteChunk
   });
 
   master.bindAsync(

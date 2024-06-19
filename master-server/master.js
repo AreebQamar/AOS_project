@@ -12,8 +12,10 @@ const path = require('path');
 
 const cors = require("cors");
 
+const ping = require("./ping.js");
 const fieRetriever = require("./fileRetrieval.js");
 const saveFileModule = require("./fileDistribution");
+const deleteFile = require("./deleteFile.js");
 
 
 const MASTER_PORT = 50051;
@@ -116,18 +118,27 @@ app.get('/getfile', async (req, res) => {
   }
 });
 
+app.get('/deleteFile', async (req, res) => {
+  const fileName = req.query.fileName;
 
-const ping = require("./ping.js");
+  if (!fileName) {
+    return res.status(400).send('Bad request. No file name provided.');
+  }
+
+  try {
+    await deleteFile.deleteAllChunks(fileName, ourFileSystem, chunkServers);
+    res.status(200).send("File deleted successfully!");
+  } catch (err) {
+    res.status(500).send('Error deleting file: ' + err.message);
+  }
+});
 
 app.get('/ping', async (req, res) => {
 
   await ping.checkAndUpdateChunkServerStatus(ourFileSystem, chunkServers);
   
-  
   res.status(200).send(chunkServers); 
  
-   
-
 });
 
 

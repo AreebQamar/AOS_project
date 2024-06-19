@@ -10,7 +10,7 @@ const fs = require('fs');
 async function getAllTheFileChunks(fileName, metadataFilePath, packageDefinition, chunkServersList) {
     await ping.checkAndUpdateChunkServerStatus(packageDefinition, chunkServersList);
 
-    console.log("FR: ", chunkServersList);
+    // console.log("FR: ", chunkServersList);
 
     return new Promise(async (resolve, reject) => {
       try {
@@ -39,6 +39,7 @@ async function getAllTheFileChunks(fileName, metadataFilePath, packageDefinition
             // console.log("chunk locations: ", chunkLocations);
 
             for (let i = 0; i< 3; i++){//3 replicas for each chunk.
+              //chunkLocations[i] is one of the locations of the current chunk.
               //testing.
               // console.log("chunk server Id: ", chunkLocations[i].chunkServerId);
               // console.log("chunk server port: ", chunkLocations[i].chunkPort);
@@ -63,7 +64,7 @@ async function getAllTheFileChunks(fileName, metadataFilePath, packageDefinition
             );
             const reqFileName = `${fileName}_${chunkId}`;
   
-            console.log("port:", port, "filename:", reqFileName);
+            console.log("port:", port, "chunkName:", reqFileName);
   
             slave.requestChunk({ fileName: reqFileName }, (error, response) => {
               if (error) {

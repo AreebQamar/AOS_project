@@ -7,6 +7,7 @@ service FileSystem {
   rpc Register(ClientIdentity) returns (RegisterResponse);
   rpc storeChunk(ChunkData) returns (chunkReceived);
   rpc requestChunk(chunkRequest) returns (chunkResponse);
+  rpc deleteChunk(chunkRequest) returns (PongMessage);
 }
 
 message ClientIdentity {
