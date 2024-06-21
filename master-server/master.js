@@ -118,7 +118,7 @@ app.get('/getfile', async (req, res) => {
   }
 });
 
-app.get('/deleteFile', async (req, res) => {
+app.delete('/deleteFile', async (req, res) => {
   const fileName = req.query.fileName;
 
   if (!fileName) {

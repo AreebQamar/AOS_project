@@ -98,7 +98,7 @@ curl -X POST -F "file=@/path/to/your/file" http://localhost:4000/getfile?fileNam
 ### Delete File API
 
 - **Endpoint**: `/deletefile`
-- **Method**: `GET`
+- **Method**: `DELETE`
 - **Description**:  Deletes a file by name.
 - **Request**: Query parameter `fileName` specifying the name of the file.
 - **Response**: 
