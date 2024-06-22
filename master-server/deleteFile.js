@@ -12,7 +12,12 @@ async function deleteMetaData(fileName) {
     // console.log("file Index: ", fileIndex);
     if (fileIndex !== -1) {
         masterMetadata.splice(fileIndex, 1); // Remove the file entry completely
-        await fs.promises.writeFile(metadataFilePath, JSON.stringify(masterMetadata, null, 2));
+        if (masterMetadata.length === 0) {
+            await fs.promises.writeFile(metadataFilePath, ''); // Write an empty string to the file
+        } else {
+            await fs.promises.writeFile(metadataFilePath, JSON.stringify(masterMetadata, null, 2));
+        }
+        // await fs.promises.writeFile(metadataFilePath, JSON.stringify(masterMetadata, null, 2));
     }
 }
 

@@ -88,11 +88,18 @@ app.get('/filenames', (req, res) => {
     }
 
     try {
+      //if metaData file is empty.
+      if (!data || data.trim() === '') {
+        return res.json({ files: [] });
+      }
       // Parse the JSON data
       const metadata = JSON.parse(data);
 
       // Extract the file names from the metadata
       const fileNames = metadata.map(entry => entry.fileName);
+      
+      //testing.
+      // console.log("fileName: ", fileNames);
 
       // Send the list of file names as a JSON response
       res.json({ files: fileNames });
