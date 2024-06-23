@@ -63,8 +63,8 @@ function initializeChunkServer(clientId) {
 }
 
 const clientId = process.argv[2];
-if (!clientId) {
-  console.error("Usage: node storage.js <client_id>");
+if (!clientId || !/^\d+$/.test(clientId) || Number(clientId) <= 0) {
+  console.error("Usage: node storage.js <client_id> (client_id should be a number greater than 0)");
   process.exit(1);
 }
 initializeChunkServer(clientId);
